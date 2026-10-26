@@ -58,6 +58,7 @@
   const layerFermate = L.layerGroup().addTo(map);
   const layerLinea = L.layerGroup().addTo(map);
   let meMarker = null;
+  let nav = null; // navigazione "in cammino" attiva
   let selMarker = null;
 
   // ------------------------------------------------------------ utilità
@@ -69,6 +70,7 @@
   }
   // a Venezia si cammina a zig-zag: +35% sulla linea d'aria, 75 m/min
   const piedi = (m) => Math.max(1, Math.round((m * 1.35) / 75));
+  const distPiedi = (m) => (m > 1500 ? fmtDist(m) : piedi(m) + " min");
   const fmtDist = (m) => (m < 1000 ? Math.round(m / 10) * 10 + " m" : (m / 1000).toFixed(1).replace(".", ",") + " km");
   const hhmm = (m) => String(Math.floor(m / 60) % 24).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
   const ymd = (d) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
@@ -169,6 +171,7 @@
 
   // ------------------------------------------------------------ foglio
   const sheet = $("#sheet");
+  const tabsEl = () => $("#tabs");
   const body = $("#body");
   const SIZES = { peek: () => 160, half: () => Math.round(innerHeight * 0.5), full: () => innerHeight - 120 };
   function sheetHeight() { return SIZES[sheet.dataset.state](); }
@@ -180,30 +183,43 @@
   setSheet("peek");
   addEventListener("resize", () => setSheet(sheet.dataset.state));
 
+  // la tendina si trascina dalla maniglia e dalla barra delle schede; un tocco sulla maniglia la cambia di altezza
   (function drag() {
     const h = $("#handle");
-    let y0 = null, hh0 = 0, moved = false;
-    const start = (e) => { y0 = e.clientY; hh0 = sheet.offsetHeight; moved = false; sheet.style.transition = "none"; h.setPointerCapture(e.pointerId); };
-    h.addEventListener("pointerdown", start);
-    h.addEventListener("pointermove", (e) => {
+    let y0 = null, hh0 = 0, t0 = 0, moved = false, presa = null;
+    sheet.addEventListener("pointerdown", (e) => {
+      presa = e.target.closest("#handle, #tabs");
+      if (!presa || e.button > 0) return;
+      y0 = e.clientY; hh0 = sheet.offsetHeight; t0 = e.timeStamp; moved = false;
+    });
+    sheet.addEventListener("pointermove", (e) => {
       if (y0 == null) return;
       const dy = y0 - e.clientY;
-      if (Math.abs(dy) > 4) moved = true;
-      const nh = Math.min(SIZES.full(), Math.max(110, hh0 + dy));
+      if (!moved && Math.abs(dy) < 6) return;
+      if (!moved) { moved = true; sheet.style.transition = "none"; presa.setPointerCapture(e.pointerId); }
+      const nh = Math.min(SIZES.full(), Math.max(90, hh0 + dy));
       document.documentElement.style.setProperty("--sheet-h", nh + "px");
     });
-    h.addEventListener("pointerup", () => {
-      sheet.style.transition = "";
+    const fine = (e) => {
       if (y0 == null) return;
+      sheet.style.transition = "";
+      const dy = y0 - e.clientY, dt = e.timeStamp - t0;
       y0 = null;
-      const cur = sheet.offsetHeight;
       if (!moved) {
-        setSheet({ peek: "half", half: "full", full: "peek" }[sheet.dataset.state]);
+        if (presa === h) setSheet({ peek: "half", half: "full", full: "peek" }[sheet.dataset.state]);
         return;
       }
-      const best = Object.keys(SIZES).sort((a, b) => Math.abs(SIZES[a]() - cur) - Math.abs(SIZES[b]() - cur))[0];
-      setSheet(best);
-    });
+      const order = ["peek", "half", "full"];
+      const i = order.indexOf(sheet.dataset.state);
+      // colpo veloce: passa all'altezza successiva nella direzione del gesto
+      if (dt < 250 && Math.abs(dy) > 30) return setSheet(order[Math.max(0, Math.min(2, i + (dy > 0 ? 1 : -1)))]);
+      const cur = sheet.offsetHeight;
+      setSheet(order.slice().sort((a, b) => Math.abs(SIZES[a]() - cur) - Math.abs(SIZES[b]() - cur))[0]);
+    };
+    sheet.addEventListener("pointerup", fine);
+    sheet.addEventListener("pointercancel", fine);
+    // dopo un trascinamento sulle schede non parte il click
+    tabsEl().addEventListener("click", (e) => { if (moved) { e.stopPropagation(); moved = false; } }, true);
   })();
 
   function grow(min) {
@@ -212,6 +228,7 @@
   }
 
   function show(view, push = true) {
+    if (nav) nav.stop();
     if (push) state.stack.push(view);
     else state.stack = [view];
     body.innerHTML = "";
@@ -239,7 +256,7 @@
 
   // ------------------------------------------------------------ tab
   let currentTab = "vicini";
-  const tabs = $("#tabs");
+  const tabs = tabsEl();
   tabs.addEventListener("click", (e) => {
     const b = e.target.closest("button[data-tab]");
     if (!b) return;
@@ -258,7 +275,7 @@
   function rowLocale(l, ref) {
     const st = Orari.status(l.orari);
     const sub = [TIPI[l.tipo], st ? (st.aperto ? "aperto" : "chiuso") : "", l.indirizzo].filter(Boolean).join(" · ");
-    return `<button class="row" data-loc="${esc(l.id)}">${tipoIcon(l.tipo)}<div><div class="t">${l.preferito ? "★ " : ""}${esc(l.nome)}</div><div class="s">${esc(sub)}</div></div><div class="m">${ref ? fmtDist(dist(ref, l)) : ""}</div></button>`;
+    return `<button class="row" data-loc="${esc(l.id)}">${tipoIcon(l.tipo)}<div><div class="t">${l.preferito ? "★ " : ""}${esc(l.nome)}</div><div class="s">${esc(sub)}</div></div><div class="m">${ref ? distPiedi(dist(ref, l)) : ""}</div></button>`;
   }
   function rowFermata(i, ref) {
     const f = state.actv.fermate[i];
@@ -279,19 +296,22 @@
     return state.actv.fermate.map((f, i) => [dist(ref, f), i]).sort((a, b) => a[0] - b[0]).slice(0, n).map((x) => x[1]);
   }
 
+  const RAGGIO = 300;
   function viewVicini() {
     return {
       hash: "",
       vicini: true,
       render(el) {
         const ref = center();
-        const list = state.locali.filter(visibile).map((l) => [dist(ref, l), l]).sort((a, b) => a[0] - b[0]).slice(0, 40);
-        let h = "";
+        // entro 300 m, prima gli aperti, poi i più vicini
+        const aperto = (l) => { const st = Orari.status(l.orari); return st ? (st.aperto ? 0 : 2) : 1; };
+        const list = state.locali.filter(visibile).map((l) => [dist(ref, l), l]).filter(([d]) => d <= RAGGIO)
+          .sort((a, b) => aperto(a[1]) - aperto(b[1]) || a[0] - b[0]);
+        let h = `<div class="section-t">${state.me ? "Vicino a te" : "In questa zona"} · entro ${RAGGIO} m</div>`;
+        h += list.length ? `<div class="list">${list.map(([, l]) => rowLocale(l, ref)).join("")}</div>` : `<p class="empty">Nessun locale entro ${RAGGIO} m con questi filtri. Sposta la mappa o attiva altre categorie in alto.</p>`;
         if (state.actv && state.filtri.fermate) {
           h += `<div class="section-t">Vaporetti vicini</div><div class="list">${vicine(ref, 3).map((i) => rowFermata(i, ref)).join("")}</div>`;
         }
-        h += `<div class="section-t">${state.me ? "Vicino a te" : "In questa zona"}</div>`;
-        h += list.length ? `<div class="list">${list.map(([, l]) => rowLocale(l, ref)).join("")}</div>` : `<p class="empty">Nessun locale con questi filtri. Prova ad attivare altre categorie in alto.</p>`;
         h += foot();
         el.innerHTML = h;
       },
@@ -377,7 +397,7 @@
           ${googleKey() ? '<div id="gfoto" class="gfoto" aria-live="polite"></div>' : ""}
           ${notes.join("")}
           <div class="actions">
-            <button class="btn primary" id="go">Portami qui</button>
+            <button class="btn" id="go">Portami qui</button>
             <button class="btn" id="share">Condividi</button>
             ${isOsm ? `<a class="btn" target="_blank" rel="noopener" href="https://www.openstreetmap.org/${esc(l.id)}">Correggi su OSM</a>` : ""}
           </div>
@@ -648,6 +668,24 @@
     });
   }
 
+  // Indirizzi con Nominatim (OpenStreetMap), solo su richiesta e solo dentro la laguna
+  async function geocodifica(testo) {
+    const u = new URL("https://nominatim.openstreetmap.org/search");
+    u.search = new URLSearchParams({ q: /venezia|venice|mestre|lido|murano|burano|giudecca/i.test(testo) ? testo : testo + ", Venezia",
+      format: "jsonv2", limit: "6", "accept-language": "it", countrycodes: "it", viewbox: "12.17,45.55,12.47,45.36", bounded: "1" });
+    try {
+      const r = await fetch(u);
+      if (!r.ok) throw new Error(r.status);
+      return (await r.json()).map((x) => {
+        const parti = x.display_name.split(", ");
+        return { lat: +x.lat, lon: +x.lon, nome: parti.slice(0, 2).join(", "), sub: parti.slice(2, 4).join(", ") };
+      });
+    } catch (e) {
+      toast("Ricerca indirizzi non disponibile ora");
+      return [];
+    }
+  }
+
   const minuti = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`);
   let stopNodes = null;
 
@@ -726,6 +764,7 @@
     let piano = null, modo = "piedi", scelta = 0, origine = null, etichetta = "", errore = "";
     let scelto = null;      // partenza scelta a mano: { lat, lon, nome }
     let cerca = null;       // testo della ricerca partenza (null = ricerca chiusa)
+    let indirizzi = null;   // risultati della ricerca indirizzo (null = non cercato)
     show({
       sel: [dest.lat, dest.lon],
       render(el) {
@@ -746,7 +785,8 @@
           const oq = $("#oq", el);
           if (oq) {
             oq.value = cerca;
-            oq.addEventListener("input", () => { cerca = oq.value; $("#ores", el).innerHTML = risultatiPartenza(); });
+            oq.addEventListener("input", () => { cerca = oq.value; indirizzi = null; $("#ores", el).innerHTML = risultatiPartenza(); });
+            oq.addEventListener("keydown", (e) => { if (e.key === "Enter" && cerca.trim().length >= 3) { e.preventDefault(); $('[data-orig="ind:"]', el)?.click(); } });
           }
           el.querySelector(".origini")?.addEventListener("click", async (e) => {
             const b = e.target.closest("[data-orig]");
@@ -761,6 +801,14 @@
               setSheet("peek");
               map.once("click", (ev) => { scelto = { lat: ev.latlng.lat, lon: ev.latlng.lng, nome: "punto sulla mappa" }; cerca = null; grow("half"); calcola(); });
               return;
+            } else if (tipo === "ind") {
+              b.querySelector(".t").textContent = "Cerco l'indirizzo…";
+              indirizzi = await geocodifica(cerca.trim());
+              $("#ores", el).innerHTML = risultatiPartenza();
+              return;
+            } else if (tipo === "a") {
+              scelto = { ...indirizzi[+id] };
+              indirizzi = null;
             } else if (tipo === "f") {
               const f = state.actv.fermate[+id];
               scelto = { lat: f.lat, lon: f.lon, nome: "fermata " + f.nome };
@@ -771,7 +819,97 @@
             cerca = null;
             calcola();
           });
+          $("#avvia", el)?.addEventListener("click", avvia);
           if (piano) disegna();
+        };
+        // ---- in cammino: la mappa segue la posizione e in alto c'è l'istruzione del momento
+        const avvia = () => {
+          if (!navigator.geolocation) return toast("Posizione non disponibile su questo dispositivo");
+          if (nav) nav.stop();
+          const vap = modo === "vap" && piano.opzioni.length ? piano.opzioni[Math.min(scelta, piano.opzioni.length - 1)] : null;
+          const leg = (p, verso) => {
+            if (!p) return null;
+            const coords = verso ? p.coords.slice().reverse() : p.coords;
+            const cum = [0];
+            for (let i = 1; i < coords.length; i++) cum.push(cum[i - 1] + Percorsi.metri(coords[i - 1][0], coords[i - 1][1], coords[i][0], coords[i][1]));
+            return { coords, cum, tot: cum[cum.length - 1], passi: verso ? null : Percorsi.steps(p) };
+          };
+          const gambe = vap
+            ? { a: leg(Percorsi.path(piano.daO, piano.nodoFermata.get("a" + vap.a))), b: leg(Percorsi.path(piano.daD, piano.nodoFermata.get("b" + vap.b)), true) }
+            : { a: leg(piano.piedi) };
+          const bar = document.createElement("div");
+          bar.className = "navbar";
+          bar.innerHTML = '<div class="nav-txt"><b></b><span></span></div><button class="btn" data-nav="centra" hidden>Ricentra</button><button class="btn" data-nav="fine">Fine</button>';
+          document.body.append(bar);
+          document.body.classList.add("navigando");
+          let segui = true;
+          const pausa = () => { segui = false; bar.querySelector('[data-nav="centra"]').hidden = false; };
+          map.on("dragstart", pausa);
+          bar.addEventListener("click", (e) => {
+            const b = e.target.closest("[data-nav]");
+            if (!b) return;
+            if (b.dataset.nav === "fine") return nav && nav.stop();
+            segui = true; b.hidden = true;
+            if (state.me) segui && segui_(state.me);
+          });
+          const segui_ = (me) => {
+            const z = Math.max(map.getZoom(), 17);
+            const p = map.project([me.lat, me.lon], z).add([0, sheetHeight() / 2 - 60]);
+            map.setView(map.unproject(p, z), z, { animate: true });
+          };
+          const lungo = (g, me) => {
+            let best = Infinity, k = 0;
+            g.coords.forEach(([la, lo], i) => { const d = Percorsi.metri(me.lat, me.lon, la, lo); if (d < best) { best = d; k = i; } });
+            return { fatto: g.cum[k], manca: g.tot - g.cum[k], fuori: best };
+          };
+          const istruzione = (g, me, meta) => {
+            const { fatto, manca, fuori } = lungo(g, me);
+            if (manca < 25) return null;
+            const sub = fuori > 60 ? `Sei a ${fmtDist(fuori)} dal percorso` : `${meta}: ancora ${fmtDist(manca)}`;
+            if (!g.passi) return [`Cammina fino a ${dest.nome}`, sub];
+            const scala = g.tot / g.passi.reduce((t, x) => t + x.len, 0);
+            let c = 0;
+            for (let i = 0; i < g.passi.length; i++) {
+              const fine = c + g.passi[i].len * scala;
+              if (fatto < fine || i === g.passi.length - 1) {
+                const prossimo = g.passi[i + 1];
+                return [g.passi[i].txt, prossimo ? `Fra ${fmtDist(Math.max(10, fine - fatto))}: ${prossimo.txt.charAt(0).toLowerCase() + prossimo.txt.slice(1)}` : sub];
+              }
+              c = fine;
+            }
+          };
+          const aggiorna = (me) => {
+            let r;
+            if (!vap) r = gambe.a ? istruzione(gambe.a, me, dest.nome) : null;
+            else {
+              const t = nowMin(), F = (g) => state.actv.fermate[g].nome, linea = state.actv.linee[vap.r].nome;
+              const fa = state.actv.fermate[vap.a];
+              if (t < vap.parte) {
+                const vicino = Percorsi.metri(me.lat, me.lon, fa.lat, fa.lon) < 60;
+                r = !vicino && gambe.a && istruzione(gambe.a, me, `Pontile ${F(vap.a)}`);
+                if (r) r[1] = `Linea ${linea} alle ${hhmm(vap.parte)} · ` + r[1];
+                else r = [`Aspetta la linea ${linea} a ${F(vap.a)}`, `Parte alle ${hhmm(vap.parte)}, fra ${vap.parte - t} min`];
+              } else if (t < vap.scende) r = [`Sei sulla linea ${linea}`, `Scendi a ${F(vap.b)} alle ${hhmm(vap.scende)}`];
+              else r = gambe.b ? istruzione(gambe.b, me, dest.nome) : null;
+            }
+            if (!r) r = [`Sei arrivato a ${dest.nome}`, "Salute!"];
+            bar.querySelector("b").textContent = r[0];
+            bar.querySelector("span").textContent = r[1];
+            if (segui) segui_(me);
+          };
+          bar.querySelector("b").textContent = "Cerco la tua posizione…";
+          const id = navigator.geolocation.watchPosition((p) => { setMe(p); aggiorna(state.me); },
+            () => { bar.querySelector("b").textContent = "Posizione non disponibile"; bar.querySelector("span").textContent = "Controlla i permessi del browser"; },
+            { enableHighAccuracy: true, maximumAge: 5000 });
+          nav = { stop() {
+            navigator.geolocation.clearWatch(id);
+            map.off("dragstart", pausa);
+            bar.remove();
+            document.body.classList.remove("navigando");
+            nav = null;
+          } };
+          setSheet("peek");
+          if (state.me) aggiorna(state.me);
         };
         const risultatiPartenza = () => {
           const q = norm(cerca.trim());
@@ -784,18 +922,22 @@
             if (state.actv) state.actv.fermate.forEach((f, i) => { if (norm(f.nome).includes(q)) righe.push(rowOrig("f", i, f.nome, "Fermata vaporetto")); });
             state.locali.filter((l) => norm(l.nome).includes(q)).slice(0, 10)
               .forEach((l) => righe.push(rowOrig("l", encodeURIComponent(l.id), l.nome, TIPI[l.tipo])));
-            if (!righe.length) righe.push(`<p class="empty">Niente per “${esc(cerca)}”.</p>`);
+            righe = righe.slice(0, 12);
+            righe.unshift(`<button class="row" data-orig="ind:"><span class="ico bar">⌕</span><div><div class="t">Cerca l'indirizzo “${esc(cerca.trim())}”</div><div class="s">es. Cannaregio 1234, Campo Santa Margherita</div></div><div class="m"></div></button>`);
+            if (indirizzi) righe.unshift(...(indirizzi.length ? indirizzi.map((a, i) => rowOrig("a", i, a.nome, a.sub))
+              : [`<p class="empty">Nessun indirizzo trovato per “${esc(cerca.trim())}”.</p>`]));
           }
-          return righe.slice(0, 14).join("");
+          return righe.join("");
         };
-        const rowOrig = (tipo, id, nome, sub) => `<button class="row" data-orig="${tipo}:${id}">${tipo === "f" ? `<span class="ico fermata">${ICON_BOAT}</span>` : tipoIcon("bacaro")}<div><div class="t">${esc(nome)}</div><div class="s">${esc(sub)}</div></div><div class="m"></div></button>`;
-        const htmlPartenza = () => `<div class="origini"><div class="searchbox inline"><input id="oq" type="search" placeholder="Parti da una fermata o da un locale" autocomplete="off"></div>
+        const rowOrig = (tipo, id, nome, sub) => `<button class="row" data-orig="${tipo}:${id}">${tipo === "f" ? `<span class="ico fermata">${ICON_BOAT}</span>` : tipo === "a" ? '<span class="ico bar">⌖</span>' : tipoIcon("bacaro")}<div><div class="t">${esc(nome)}</div><div class="s">${esc(sub)}</div></div><div class="m"></div></button>`;
+        const htmlPartenza = () => `<div class="origini"><div class="searchbox inline"><input id="oq" type="search" placeholder="Indirizzo, fermata o locale" autocomplete="off"></div>
           <div class="list" id="ores">${risultatiPartenza()}</div></div>`;
         const htmlPiedi = () => {
           const p = piano.piedi;
           if (!p) return `<p class="empty">Non trovo un percorso a piedi: forse partenza e arrivo sono su isole diverse. Prova col vaporetto.</p>`;
           const passi = Percorsi.steps(p);
           return `<p class="summary"><b>${minuti(piano.piediMin)}</b> a piedi · ${fmtDist(p.len)}${p.ponti ? ` · ${p.ponti} ${p.ponti === 1 ? "ponte" : "ponti"}` : ""}</p>
+            <button class="btn primary avvia" id="avvia">Avvia: la mappa ti segue</button>
             <ol class="steps">${passi.map((s) => `<li class="${s.ponte ? "ponte" : s.verso}"><span>${esc(s.txt)}</span><span class="m">${fmtDist(s.len)}</span></li>`).join("")}
             <li class="arrivo"><span>Sei arrivato a ${esc(dest.nome)}</span><span></span></li></ol>`;
         };
@@ -805,7 +947,7 @@
           if (!ops.length) return `<p class="empty">${piano.piediMin != null && piano.piediMin <= 25 ? `Fai prima a piedi: ${minuti(piano.piediMin)}.` : "Nessun vaporetto diretto utile nei prossimi 90 minuti."}</p>`;
           const o = ops[Math.min(scelta, ops.length - 1)];
           const F = (g) => esc(state.actv.fermate[g].nome);
-          return `<div class="list">${ops.map((x, i) => `<button class="row opt${i === scelta ? " on" : ""}" data-o="${i}">${lineaBadge(x.r)}<div><div class="t">${hhmm(x.parte)} da ${F(x.a)}</div><div class="s">scendi a ${F(x.b)} · arrivo ${hhmm(x.arrivo)} · ${x.walkA + x.walkB} min a piedi</div></div><div class="m"><b>${minuti(x.arrivo - nowMin())}</b></div></button>`).join("")}</div>
+          return `<button class="btn primary avvia" id="avvia">Avvia: la mappa ti segue</button><div class="list">${ops.map((x, i) => `<button class="row opt${i === scelta ? " on" : ""}" data-o="${i}">${lineaBadge(x.r)}<div><div class="t">${hhmm(x.parte)} da ${F(x.a)}</div><div class="s">scendi a ${F(x.b)} · arrivo ${hhmm(x.arrivo)} · ${x.walkA + x.walkB} min a piedi</div></div><div class="m"><b>${minuti(x.arrivo - nowMin())}</b></div></button>`).join("")}</div>
             <ol class="steps">
               ${o.walkA > 1 ? `<li class="piedi"><span>Cammina fino al pontile ${F(o.a)}</span><span class="m">${o.walkA} min</span></li>` : ""}
               <li class="vap"><span>Prendi la linea ${esc(state.actv.linee[o.r].nome)} → ${esc(state.actv.capolinea[o.h])} alle <b>${hhmm(o.parte)}</b></span><span class="m">${o.tappe.length - 1} ferm.</span></li>
@@ -978,6 +1120,21 @@
       return;
     }
     fromHash(hash);
+    invitoHome();
+  }
+
+  // iPhone/iPad in Safari: la prima volta spiega come aggiungere l'app alla schermata Home
+  function invitoHome() {
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (!ios || navigator.standalone || matchMedia("(display-mode: standalone)").matches) return;
+    try { if (localStorage.getItem("invitoHome")) return; localStorage.setItem("invitoHome", "1"); } catch (e) { return; }
+    const d = document.createElement("div");
+    d.className = "invito";
+    d.innerHTML = `<img src="icons/icon-192.png" alt="" width="44" height="44">
+      <div><b>Mettila nella Home</b><span>Tocca <svg viewBox="0 0 24 24" aria-label="Condividi"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8"/></svg> in basso, poi “Aggiungi alla schermata Home”. Si apre a tutto schermo come un'app (ti chiederà di nuovo la password).</span></div>
+      <button class="x" aria-label="Chiudi">✕</button>`;
+    d.querySelector(".x").addEventListener("click", () => d.remove());
+    document.body.append(d);
   }
   init();
 
