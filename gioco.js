@@ -236,10 +236,10 @@
         <form id="g-entra" class="g-form">
           <button type="button" class="g-avpick solo-nuovo" id="g-avpick" aria-label="Aggiungi la tua foto"><span>📷</span><small>Foto</small></button>
           <label>Nome <input name="nome" required maxlength="24" minlength="2" autocomplete="nickname" placeholder="Come ti chiamano"></label>
-          <label>PIN di 4 cifre <input name="pin" required inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="off" placeholder="••••"></label>
+          <label id="g-pinbox" hidden>PIN <input name="pin" inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="off" placeholder="••••"></label>
           <label class="solo-nuovo">Bio <span class="muted">(facoltativa)</span><input name="bio" maxlength="160" placeholder="Ombra preferita, superpotere…"></label>
           <button class="btn primary" type="submit">Iscriviti</button>
-          <p class="muted g-nota" id="g-nota">Il PIN serve per rientrare da un altro telefono o dopo aver messo l'app nella Home. Su questo telefono resti collegato.</p>
+          <p class="muted g-nota" id="g-nota">Su questo telefono resti collegato. Da un altro telefono, o dopo aver messo l'app nella Home, usa Accedi col tuo nome.</p>
         </form>
       </div>`;
     document.body.append(pag);
@@ -252,8 +252,10 @@
       pag.querySelectorAll(".solo-nuovo").forEach((x) => { x.hidden = modo !== "nuovo"; });
       $("button[type=submit]", f).textContent = modo === "nuovo" ? "Iscriviti" : "Accedi";
       $("#g-nota", pag).textContent = modo === "nuovo"
-        ? "Il PIN serve per rientrare da un altro telefono o dopo aver messo l'app nella Home. Su questo telefono resti collegato."
-        : "Hai dimenticato il PIN? Chiedi all'admin di cambiartelo.";
+        ? "Su questo telefono resti collegato. Da un altro telefono, o dopo aver messo l'app nella Home, usa Accedi col tuo nome."
+        : "Scrivi il nome con cui ti sei iscritto.";
+      $("#g-pinbox", pag).hidden = true;
+      f.pin.value = "";
     }));
     // il selettore del telefono offre sia la fotocamera sia il rullino
     $("#g-avpick", pag).addEventListener("click", async () => {
@@ -271,8 +273,14 @@
       const nome = f.nome.value.trim(), pin = f.pin.value.trim();
       try {
         const r = modo === "nuovo"
-          ? await G.sb.rpc("crea_profilo", { p_nome: nome, p_pin: pin, p_bio: f.bio.value.trim() })
-          : await G.sb.rpc("entra_profilo", { p_nome: nome, p_pin: pin });
+          ? await G.sb.rpc("crea_profilo", { p_nome: nome, p_bio: f.bio.value.trim() })
+          : await G.sb.rpc("entra_profilo", { p_nome: nome, p_pin: pin || null });
+        // solo il profilo dell'admin ha un PIN: il server lo chiede e il campo compare
+        if (r.error && /PIN richiesto/.test(r.error.message)) {
+          $("#g-pinbox", pag).hidden = false;
+          f.pin.focus();
+          throw new Error("Questo profilo è protetto da PIN");
+        }
         if (r.error) throw r.error;
         if (!r.data) throw new Error("PIN sbagliato");
         await caricaProfili();
@@ -831,7 +839,7 @@
             <button class="btn primary">Salva</button>
           </form>
           <div class="section-t">Questo telefono</div>
-          <p class="muted">Per entrare da un altro telefono usa "Accedi" con nome e PIN. Se dimentichi il PIN, chiedi all'admin.</p>
+          <p class="muted">Per entrare da un altro telefono usa "Accedi" con il tuo nome.</p>
           <button class="btn" id="g-esci">Esci da questo telefono</button>`;
         $("#g-pf", el).addEventListener("submit", async (e) => {
           e.preventDefault();
@@ -890,7 +898,7 @@
             <div class="g-riga2"><label>Punti (anche negativi) <input name="punti" type="number" step="0.5" value="1" required></label></div>
             <input name="nota" maxlength="140" placeholder="Motivo"><button class="btn primary">Assegna</button></form>
           <p class="muted">Per annullare o cambiare un singolo punteggio: menu → Punteggi, ogni riga ha Modifica e Annulla. Foto e commenti si moderano dal feed Foto.</p>
-          <div class="section-t">🔑 PIN dimenticato</div>
+          <div class="section-t">🔑 PIN di un profilo (il tuo, o per proteggere quello di un amico)</div>
           <form class="g-form" data-f="pin"><select name="chi">${opzGiocatori()}</select><input name="pin" required inputmode="numeric" pattern="\\d{4}" maxlength="4" placeholder="Nuovo PIN"><button class="btn">Imposta il PIN</button></form>`;
         el.addEventListener("click", async (e) => {
           const b = e.target.closest("[data-stop]");
