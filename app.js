@@ -25,8 +25,11 @@
   const map = L.map("map", { zoomControl: false, preferCanvas: true, minZoom: 11, maxZoom: 19 })
     .setView([45.4372, 12.3346], 15);
   // Sfondo OpenStreetMap standard: non richiede chiavi. In tema scuro lo si scurisce via CSS.
+  // maxNativeZoom 16: da 17 in su OSM disegna i numeri civici, che a Venezia coprono tutto.
+  // Oltre il 16 si ingrandiscono le immagini del 16.
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
+    maxNativeZoom: 16,
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Orari ACTV',
   }).addTo(map);
   matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => drawLocali());
