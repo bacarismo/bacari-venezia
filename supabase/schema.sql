@@ -265,14 +265,51 @@ begin
   return nuovo;
 end $$;
 
--- l'admin può mettere (o cambiare) il PIN a chiunque
+-- ------------------------------------------------------------ gestione profili (solo admin)
+-- PIN: l'admin lo mette, lo cambia o lo toglie (vuoto = niente PIN); il profilo admin deve tenerlo
 create or replace function public.admin_pin(p_profilo uuid, p_pin text) returns void
 language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not sono_admin() then raise exception 'Solo admin'; end if;
+  if coalesce(p_pin, '') = '' then
+    if exists (select 1 from profili where id = p_profilo and ruolo = 'admin') then
+      raise exception 'Il profilo admin deve avere un PIN';
+    end if;
+    delete from pin where profilo_id = p_profilo;
+    return;
+  end if;
   if p_pin !~ '^\d{4}$' then raise exception 'Il PIN deve avere 4 cifre'; end if;
   insert into pin (profilo_id, hash) values (p_profilo, crypt(p_pin, gen_salt('bf')))
     on conflict (profilo_id) do update set hash = excluded.hash, errori = 0, bloccato_fino = null;
+end $$;
+
+-- profilo creato dall'admin: non è legato a nessun telefono, l'amico entra con Accedi e il nome
+create or replace function public.admin_crea_profilo(p_nome text, p_bio text default '', p_pin text default null) returns uuid
+language plpgsql security definer set search_path = public, extensions as $$
+declare v uuid;
+begin
+  if not sono_admin() then raise exception 'Solo admin'; end if;
+  if exists (select 1 from profili where lower(trim(nome)) = lower(trim(p_nome))) then raise exception 'Nome già preso'; end if;
+  insert into profili (nome, bio) values (trim(p_nome), coalesce(p_bio, '')) returning id into v;
+  if coalesce(p_pin, '') <> '' then perform admin_pin(v, p_pin); end if;
+  return v;
+end $$;
+
+-- elimina il profilo con i suoi punti, foto, reazioni e commenti
+create or replace function public.admin_elimina_profilo(p_profilo uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not sono_admin() then raise exception 'Solo admin'; end if;
+  if p_profilo = mio_profilo() then raise exception 'Non puoi eliminare il tuo profilo'; end if;
+  delete from profili where id = p_profilo;
+end $$;
+
+-- quali profili hanno un PIN (i PIN restano illeggibili)
+create or replace function public.admin_con_pin() returns setof uuid
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not sono_admin() then raise exception 'Solo admin'; end if;
+  return query select profilo_id from pin;
 end $$;
 
 -- ------------------------------------------------------------ permessi
@@ -291,8 +328,10 @@ revoke all on public.pin from authenticated;
 revoke insert, update, delete on public.profili, public.punti, public.regole from authenticated;
 grant update (nome, bio, foto) on public.profili to authenticated;
 grant update (punti, nota, annullato) on public.punti to authenticated;
-revoke execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin from anon, public;
-grant execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin to authenticated;
+revoke execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin,
+  public.admin_crea_profilo, public.admin_elimina_profilo, public.admin_con_pin from anon, public;
+grant execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin,
+  public.admin_crea_profilo, public.admin_elimina_profilo, public.admin_con_pin to authenticated;
 
 drop policy if exists "leggi" on public.profili;
 create policy "leggi" on public.profili for select to authenticated using (true);

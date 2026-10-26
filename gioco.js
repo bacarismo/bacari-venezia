@@ -194,7 +194,7 @@
     const box = $("#g-drawer .g-drawer-in");
     // senza profilo il menu offre solo l'ingresso
     const voci = G.io ? [["classifica", "🏆", "Classifica"], ["punteggi", "📜", "Punteggi"], ["foto", "📸", "Foto"], ["regolamento", "📖", "Regolamento"], ["profilo", "👤", "Profilo"]] : [["entra", "👋", "Iscriviti / Accedi"]];
-    if (isAdmin()) voci.push(["admin", "⚙️", "Pannello admin"]);
+    if (isAdmin()) voci.push(["admin", "⚙️", "Admin"]);
     box.innerHTML = `
       <div class="g-me">${G.io ? `${avatar(G.io, "big")}<div><b>${esc(G.io.nome)}</b><span id="g-mieipunti">…</span></div>` : `<div><b>Bacaro Tour 2026</b><span>Crea il tuo profilo per giocare</span></div>`}</div>
       <nav>${voci.map(([p, e, t]) => `<button data-p="${p}"><span>${e}</span>${t}</button>`).join("")}</nav>`;
@@ -346,9 +346,9 @@
     if (!blob) throw new Error("Non riesco a leggere questa foto");
     return blob;
   }
-  async function salvaAvatar(blob) {
-    const io = G.io;
-    const path = `${io.id}/avatar-${Date.now()}.jpg`;
+  // la foto va nella cartella di chi la carica (anche quando l'admin la mette a un altro profilo)
+  async function salvaAvatar(blob, io = G.io) {
+    const path = `${G.io.id}/avatar-${Date.now()}.jpg`;
     const up = await G.sb.storage.from("foto").upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
     if (up.error) throw up.error;
     const { error } = await G.sb.from("profili").update({ foto: path }).eq("id", io.id);
@@ -919,9 +919,16 @@
     const opzGiocatori = () => [...G.profili.values()].sort((a, b) => a.nome.localeCompare(b.nome)).map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join("");
     const durate = (def) => [10, 15, 30, 45, 60, 120].map((m) => `<option value="${m}"${m === def ? " selected" : ""}>${m} min</option>`).join("");
     return {
-      titolo: "Pannello admin",
+      titolo: "Admin",
       render(el) {
         if (!isAdmin()) { el.innerHTML = '<p class="empty">Solo per l\'admin.</p>'; return; }
+        el.innerHTML = `<div class="g-seg"><button data-tab="profili" aria-pressed="${G.schedaAdmin !== "gioco"}">👥 Profili</button><button data-tab="gioco" aria-pressed="${G.schedaAdmin === "gioco"}">🎲 Gioco</button></div><div id="g-adm-body"></div>`;
+        el.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { G.schedaAdmin = b.dataset.tab; this.render(el); }));
+        const corpo = $("#g-adm-body", el);
+        if (G.schedaAdmin !== "gioco") return adminProfili(corpo);
+        this.gioco(corpo);
+      },
+      gioco(el) {
         const att = G.avvisi.filter((a) => a.tipo !== "messaggio" && attivo(a));
         el.innerHTML = `
           ${att.length ? `<div class="section-t">In corso</div><div class="list">${att.map((a) => `<div class="row"><div><div class="t">${a.tipo === "doppi" ? "⚡ Punti doppi" : "🎯 " + esc(a.titolo)}</div><div class="s">fino alle ${a.fine ? hhmm(a.fine) : "—"}</div></div><button class="btn" data-stop="${a.id}">Termina</button></div>`).join("")}</div>` : ""}
@@ -937,9 +944,7 @@
           <form class="g-form" data-f="correzione"><select name="chi">${opzGiocatori()}</select>
             <div class="g-riga2"><label>Punti (anche negativi) <input name="punti" type="number" step="0.5" value="1" required></label></div>
             <input name="nota" maxlength="140" placeholder="Motivo"><button class="btn primary">Assegna</button></form>
-          <p class="muted">Per annullare o cambiare un singolo punteggio: menu → Punteggi, ogni riga ha Modifica e Annulla. Foto e commenti si moderano dal feed Foto.</p>
-          <div class="section-t">🔑 PIN di un profilo (il tuo, o per proteggere quello di un amico)</div>
-          <form class="g-form" data-f="pin"><select name="chi">${opzGiocatori()}</select><input name="pin" required inputmode="numeric" pattern="\\d{4}" maxlength="4" placeholder="Nuovo PIN"><button class="btn">Imposta il PIN</button></form>`;
+          <p class="muted">Per annullare o cambiare un singolo punteggio: menu → Punteggi, ogni riga ha Modifica e Annulla. Foto e commenti si moderano dal feed Foto.</p>`;
         el.addEventListener("click", async (e) => {
           const b = e.target.closest("[data-stop]");
           if (!b) return;
@@ -961,15 +966,100 @@
             if (tipo === "doppi") res = await G.sb.from("avvisi").insert({ tipo, titolo: "Punti doppi!", testo: `Tutto vale doppio per ${f.durata.value} minuti`, fine, creato_da: G.io.id });
             if (tipo === "sfida") res = await G.sb.from("avvisi").insert({ tipo, titolo: f.titolo.value.trim(), testo: f.testo.value.trim(), punti: Number(f.punti.value), fine, creato_da: G.io.id });
             if (tipo === "correzione") res = await G.sb.rpc("segna", { p_codice: "correzione", p_nota: f.nota.value.trim(), p_per: f.chi.value, p_punti: Number(f.punti.value) });
-            if (tipo === "pin") res = await G.sb.rpc("admin_pin", { p_profilo: f.chi.value, p_pin: f.pin.value });
             if (res.error) throw res.error;
-            toast({ messaggio: "Messaggio inviato", doppi: "Punti doppi lanciati", sfida: "Sfida lanciata", correzione: "Punti assegnati", pin: "PIN cambiato" }[tipo]);
-            if (tipo !== "correzione" && tipo !== "pin") { await caricaAvvisi(); apriPagina("admin"); } else f.reset();
+            toast({ messaggio: "Messaggio inviato", doppi: "Punti doppi lanciati", sfida: "Sfida lanciata", correzione: "Punti assegnati" }[tipo]);
+            if (tipo !== "correzione") { await caricaAvvisi(); apriPagina("admin"); } else f.reset();
           } catch (err) { errore(err); }
           btn.disabled = false;
         });
       },
     };
+  }
+
+  // ------------------------------------------------------------ admin: profili (aggiungi, modifica, elimina)
+  async function adminProfili(cont) {
+    // contenitore nuovo a ogni giro, così i listener non si sommano
+    const el = document.createElement("div");
+    cont.replaceChildren(el);
+    el.innerHTML = '<p class="empty">Carico…</p>';
+    await caricaProfili().catch(() => {});
+    const [cl, cp] = await Promise.all([G.sb.from("classifica").select("id,totale"), G.sb.rpc("admin_con_pin")]);
+    if (cl.error || cp.error) { el.innerHTML = `<p class="g-err">${esc(spiegaErrore(cl.error || cp.error))}</p>`; return; }
+    const tot = new Map(cl.data.map((r) => [r.id, r.totale]));
+    const conPin = new Set(cp.data.map((x) => (typeof x === "string" ? x : Object.values(x)[0])));
+    const ps = [...G.profili.values()].sort((a, b) => a.nome.localeCompare(b.nome));
+    el.innerHTML = `
+      <button class="btn primary g-nuovo" id="g-np">+ Nuovo profilo</button>
+      <div class="g-plist">${ps.map((p) => `<div class="g-prow" data-id="${p.id}">${avatar(p)}
+        <div class="g-prow-t"><b>${esc(p.nome)}</b>${p.ruolo === "admin" ? ' <span class="tag">admin</span>' : ""}${conPin.has(p.id) ? " 🔒" : ""}
+          <small>${num(tot.get(p.id) || 0)} punti${p.user_id ? "" : " · non ancora entrato"}${p.bio ? " · " + esc(p.bio) : ""}</small></div>
+        <span class="g-adm"><button data-edit="${p.id}">Modifica</button>${p.id === G.io.id ? "" : `<button data-elimina="${p.id}">Elimina</button>`}</span></div>`).join("")}</div>
+      <p class="muted">Un profilo creato qui non è legato a nessun telefono: l'amico entra con Accedi e il suo nome (più il PIN, se gliel'hai messo). Eliminare un profilo cancella anche i suoi punti, foto e commenti.</p>`;
+    $("#g-np", el).addEventListener("click", () => modaleProfilo(null, false, () => adminProfili(cont)));
+    el.addEventListener("click", async (e) => {
+      const ed = e.target.closest("[data-edit]");
+      if (ed) return modaleProfilo(G.profili.get(ed.dataset.edit), conPin.has(ed.dataset.edit), () => adminProfili(cont));
+      const del = e.target.closest("[data-elimina]");
+      if (!del) return;
+      const p = G.profili.get(del.dataset.elimina);
+      if (del.dataset.conferma !== "1") { del.dataset.conferma = "1"; del.textContent = `Elimina ${p.nome}?`; return; }
+      del.disabled = true;
+      const { error } = await G.sb.rpc("admin_elimina_profilo", { p_profilo: p.id });
+      if (error) { del.disabled = false; return errore(error); }
+      if (p.foto) G.sb.storage.from("foto").remove([p.foto]);
+      toast(`${p.nome} eliminato`);
+      adminProfili(cont);
+    });
+  }
+
+  // nuovo profilo (p = null) o modifica
+  function modaleProfilo(p, haPin, fatto) {
+    let foto = null;
+    apriModale(`
+      <h3>${p ? "Modifica " + esc(p.nome) : "Nuovo profilo"}</h3>
+      <form class="g-form" id="g-mp">
+        <button type="button" class="g-avpick" id="g-mpav" aria-label="Foto del profilo">${p && p.foto ? `<img src="${esc(fotoUrl(p.foto))}" alt="">` : "<span>📷</span><small>Foto</small>"}</button>
+        <label>Nome <input name="nome" required maxlength="24" minlength="2" value="${esc(p ? p.nome : "")}"></label>
+        <label>Bio <span class="muted">(facoltativa)</span><input name="bio" maxlength="160" value="${esc(p ? p.bio : "")}"></label>
+        <label>PIN <span class="muted">${p ? (haPin ? "(ce l'ha: scrivine uno nuovo per cambiarlo)" : "(facoltativo: protegge il profilo)") : "(facoltativo)"}</span>
+          <input name="pin" inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="off" placeholder="••••"></label>
+        ${p && haPin && p.ruolo !== "admin" ? '<label class="g-check"><input type="checkbox" name="togli"> Togli il PIN</label>' : ""}
+        <button class="btn primary" type="submit">${p ? "Salva" : "Crea il profilo"}</button>
+      </form>`, (box) => {
+      $("#g-mpav", box).addEventListener("click", async () => {
+        const file = await scegliFile();
+        if (!file) return;
+        try { foto = await ritagliaAvatar(file); $("#g-mpav", box).innerHTML = `<img src="${URL.createObjectURL(foto)}" alt="">`; } catch (e) { errore(e); }
+      });
+      $("#g-mp", box).addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const f = e.target, btn = $("button[type=submit]", f);
+        btn.disabled = true;
+        try {
+          const nome = f.nome.value.trim(), bio = f.bio.value.trim(), pin = f.pin.value.trim();
+          let id = p && p.id;
+          if (!p) {
+            const r = await G.sb.rpc("admin_crea_profilo", { p_nome: nome, p_bio: bio, p_pin: pin || null });
+            if (r.error) throw r.error;
+            id = r.data;
+          } else {
+            const r = await G.sb.from("profili").update({ nome, bio }).eq("id", id);
+            if (r.error) throw /profili_nome_unico|duplicate/.test(r.error.message) ? new Error("Nome già preso") : r.error;
+            if (pin || (f.togli && f.togli.checked)) {
+              const r2 = await G.sb.rpc("admin_pin", { p_profilo: id, p_pin: pin || null });
+              if (r2.error) throw r2.error;
+            }
+          }
+          await caricaProfili();
+          if (foto) await salvaAvatar(foto, G.profili.get(id));
+          if (id === G.io.id) G.io = G.profili.get(id);
+          chiudiModale();
+          aggiornaMenu();
+          toast(p ? "Profilo aggiornato" : `Profilo ${nome} creato`);
+          fatto();
+        } catch (err) { errore(err); btn.disabled = false; }
+      });
+    });
   }
 
   window.Gioco = { avvia, schedaLocale };
