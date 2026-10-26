@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
@@ -561,6 +562,31 @@ def write_json(path, obj):
         json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
 
 
+def riusa(base, out):
+    """Copia i dati dal sito già online (per pubblicare in fretta modifiche solo all'app)."""
+    def get(rel):
+        data = http_get(f"{base}/data/{rel}")
+        path = os.path.join(out, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(data)
+        return data
+    get("locali.json")
+    get("grafo.json")
+    index = json.loads(get("actv/index.json"))
+    for i in range(len(index["fermate"])):
+        try:
+            get(f"actv/fermate/{i}.json")
+        except urllib.error.HTTPError:
+            pass  # fermata senza partenze
+    for i in range(len(index["linee"])):
+        try:
+            get(f"actv/corse/{i}.json")
+        except urllib.error.HTTPError:
+            pass
+    print(f"Dati copiati da {base}", file=sys.stderr)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--osm-file")
@@ -570,7 +596,12 @@ def main():
     ap.add_argument("--skip-gtfs", action="store_true")
     ap.add_argument("--skip-grafo", action="store_true")
     ap.add_argument("--walk-file")
+    ap.add_argument("--riusa", help="URL del sito pubblicato: copia i dati da lì invece di riscaricarli")
     args = ap.parse_args()
+
+    if args.riusa:
+        riusa(args.riusa.rstrip("/"), args.out)
+        return
 
     if not args.skip_osm:
         if args.osm_file:
