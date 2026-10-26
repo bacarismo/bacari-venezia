@@ -706,13 +706,22 @@
     if (!meMarker) meMarker = L.marker([state.me.lat, state.me.lon], { icon: L.divIcon({ className: "", html: '<span class="me-ic"></span>', iconSize: [16, 16] }), interactive: false, zIndexOffset: 1000 }).addTo(map);
     else meMarker.setLatLng([state.me.lat, state.me.lon]);
   }
+  // il messaggio giusto per ogni errore di posizione (negata, non trovata, troppo lenta)
+  let erroreGeo = null;
+  function msgGeo(err) {
+    if (!err) return "Il telefono non condivide la posizione";
+    if (err.code === 1) return "Posizione bloccata: in Impostazioni › Privacy › Localizzazione › Siti web di Safari scegli “Mentre usi l'app”, poi ricarica";
+    if (err.code === 3) return "Non riesco a trovarti in tempo: riprova tra poco, meglio all'aperto";
+    return "Il telefono non trova la posizione: controlla che la Localizzazione sia attiva";
+  }
   function posizione() {
     if (state.me) return Promise.resolve(state.me);
     if (!navigator.geolocation) return Promise.resolve(null);
-    return new Promise((ok) => {
-      navigator.geolocation.getCurrentPosition((p) => { setMe(p); ok(state.me); }, () => ok(null),
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
-    });
+    const prova = (alta) => new Promise((ok, ko) => navigator.geolocation.getCurrentPosition(ok, ko,
+      { enableHighAccuracy: alta, timeout: alta ? 10000 : 15000, maximumAge: 60000 }));
+    // prima col GPS; se è lento o non c'è, una seconda volta con wifi/celle
+    return prova(true).catch((e) => (e.code === 1 ? Promise.reject(e) : prova(false)))
+      .then((p) => { erroreGeo = null; setMe(p); return state.me; }, (e) => { erroreGeo = e; return null; });
   }
 
   // Indirizzi con Nominatim (OpenStreetMap), solo su richiesta e solo dentro la laguna
@@ -841,7 +850,7 @@
             const [tipo, id] = b.dataset.orig.split(":");
             if (tipo === "gps") {
               const me = await posizione();
-              if (!me) return toast("Posizione non disponibile: controlla i permessi del browser");
+              if (!me) return toast(msgGeo(erroreGeo));
               scelto = null;
             } else if (tipo === "mappa") {
               toast("Tocca la mappa nel punto da cui parti");
@@ -947,7 +956,7 @@
           };
           bar.querySelector("b").textContent = "Cerco la tua posizione…";
           const id = navigator.geolocation.watchPosition((p) => { setMe(p); aggiorna(state.me); },
-            () => { bar.querySelector("b").textContent = "Posizione non disponibile"; bar.querySelector("span").textContent = "Controlla i permessi del browser"; },
+            (err) => { if (state.me) return; bar.querySelector("b").textContent = "Posizione non disponibile"; bar.querySelector("span").textContent = msgGeo(err); },
             { enableHighAccuracy: true, maximumAge: 5000 });
           nav = { stop() {
             navigator.geolocation.clearWatch(id);
@@ -1040,6 +1049,7 @@
             const me = await posizione();
             origine = me || center();
             etichetta = me ? "la tua posizione" : "centro della mappa";
+            if (!me) toast(msgGeo(erroreGeo));
           }
           draw();
           try {
@@ -1106,7 +1116,12 @@
         map.setView([state.me.lat, state.me.lon], 16);
         if (currentTab === "vicini" && state.stack.length === 1) showTab("vicini");
       }
-    }, () => { toast("Posizione non disponibile: controlla i permessi di Safari"); watchId = null; }, { enableHighAccuracy: true, maximumAge: 15000 });
+    }, (err) => {
+      if (err.code === 3 && state.me) return; // aggiornamento in ritardo: si tiene l'ultima posizione
+      toast(msgGeo(err));
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
   });
 
   // ------------------------------------------------------------ avvio
