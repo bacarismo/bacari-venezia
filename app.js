@@ -24,18 +24,12 @@
   // ------------------------------------------------------------ mappa
   const map = L.map("map", { zoomControl: false, preferCanvas: true, minZoom: 11, maxZoom: 19 })
     .setView([45.4372, 12.3346], 15);
-  const dark = matchMedia("(prefers-color-scheme: dark)");
-  let tiles;
-  function setTiles() {
-    if (tiles) map.removeLayer(tiles);
-    const style = dark.matches ? "dark_all" : "rastertiles/voyager";
-    tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`, {
-      subdomains: "abcd", maxZoom: 19,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a> · Orari ACTV',
-    }).addTo(map);
-  }
-  setTiles();
-  dark.addEventListener?.("change", () => { setTiles(); drawLocali(); });
+  // Sfondo OpenStreetMap standard: non richiede chiavi. In tema scuro lo si scurisce via CSS.
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Orari ACTV',
+  }).addTo(map);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => drawLocali());
 
   const layerLocali = L.layerGroup().addTo(map);
   const layerFermate = L.layerGroup().addTo(map);

@@ -45,7 +45,7 @@ async function tileCacheFirst(req) {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
-  if (url.hostname.endsWith("basemaps.cartocdn.com")) return e.respondWith(tileCacheFirst(e.request));
+  if (url.hostname === "tile.openstreetmap.org") return e.respondWith(tileCacheFirst(e.request));
   if (url.origin === location.origin && url.pathname.includes("/data/")) return e.respondWith(networkFirst(e.request, DATA));
   if (url.origin === location.origin || url.hostname.includes("cdnjs") || url.hostname.includes("fonts.")) {
     return e.respondWith(networkFirst(e.request, SHELL));

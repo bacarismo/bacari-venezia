@@ -40,4 +40,4 @@ python -m http.server 8000          # poi apri http://localhost:8000
 python -m unittest discover -s tests
 ```
 
-Dati: © OpenStreetMap contributors (ODbL), orari © ACTV (open data). Mappa base © CARTO.
+Dati: © OpenStreetMap contributors (ODbL), orari © ACTV (open data). Mappa base © OpenStreetMap.
