@@ -46,6 +46,16 @@
     G.sb = supabase.createClient(cfg.url, cfg.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: "bacaro-gioco" } });
     try { G.visti = new Set(JSON.parse(localStorage.getItem("avvisiVisti") || "[]")); } catch (e) { /* ignora */ }
     montaUI();
+    aggiornaMenu();
+    if (await collega()) {
+      ascolta();
+      if (!G.io) apriEntra();
+    }
+    pronto();
+  }
+
+  // sessione e dati di base; se fallisce si riprova dal menu (Iscriviti / Accedi)
+  async function collega() {
     try {
       let { data: { session } } = await G.sb.auth.getSession();
       if (!session) {
@@ -56,14 +66,14 @@
       G.uid = session.user.id;
       await Promise.all([caricaProfili(), caricaRegole(), caricaAvvisi()]);
       G.io = [...G.profili.values()].find((p) => p.user_id === G.uid) || null;
+      G.collegato = true;
       aggiornaMenu();
-      ascolta();
-      if (!G.io) apriEntra();
+      return true;
     } catch (e) {
       console.warn(e);
-      toast("Gioco non raggiungibile: controlla la connessione");
+      toast("Gioco non raggiungibile: " + spiegaErrore(e));
+      return false;
     }
-    pronto();
   }
 
   async function caricaProfili() {
@@ -139,7 +149,10 @@
     $("#g-drawer").addEventListener("click", (e) => {
       if (e.target.id === "g-drawer") return chiudiMenu();
       const b = e.target.closest("[data-p]");
-      if (b) { chiudiMenu(); apriPagina(b.dataset.p); }
+      if (!b) return;
+      chiudiMenu();
+      if (b.dataset.p === "entra") entra();
+      else apriPagina(b.dataset.p);
     });
     $("#g-pagina").addEventListener("click", (e) => { if (e.target.closest("[data-chiudi]")) chiudiPagina(); });
     $("#g-modale").addEventListener("click", (e) => { if (e.target.id === "g-modale" || e.target.closest("[data-chiudi]")) chiudiModale(); });
@@ -161,9 +174,13 @@
     });
   }
 
+  async function entra() {
+    if (!G.collegato && !(await collega())) return;
+    if (!G.io) apriEntra();
+  }
+
   function conProfilo(fn) {
-    if (!G.sb || !G.uid) return toast("Gioco non ancora collegato, riprova tra un attimo");
-    if (!G.io) return apriEntra();
+    if (!G.collegato || !G.io) return entra();
     fn();
   }
 
@@ -175,7 +192,8 @@
 
   async function aggiornaMenu() {
     const box = $("#g-drawer .g-drawer-in");
-    const voci = [["classifica", "🏆", "Classifica"], ["punteggi", "📜", "Punteggi"], ["foto", "📸", "Foto"], ["regolamento", "📖", "Regolamento"], ["profilo", "👤", "Profilo"]];
+    // senza profilo il menu offre solo l'ingresso
+    const voci = G.io ? [["classifica", "🏆", "Classifica"], ["punteggi", "📜", "Punteggi"], ["foto", "📸", "Foto"], ["regolamento", "📖", "Regolamento"], ["profilo", "👤", "Profilo"]] : [["entra", "👋", "Iscriviti / Accedi"]];
     if (isAdmin()) voci.push(["admin", "⚙️", "Pannello admin"]);
     box.innerHTML = `
       <div class="g-me">${G.io ? `${avatar(G.io, "big")}<div><b>${esc(G.io.nome)}</b><span id="g-mieipunti">…</span></div>` : `<div><b>Bacaro Tour 2026</b><span>Crea il tuo profilo per giocare</span></div>`}</div>
@@ -207,8 +225,7 @@
 
   const PAGINE = { classifica: pagClassifica, punteggi: pagPunteggi, foto: pagFoto, regolamento: pagRegolamento, profilo: pagProfilo, admin: pagAdmin };
   function apriPagina(nome, arg) {
-    if (nome !== "regolamento" && nome !== "classifica" && !G.uid) return toast("Gioco non ancora collegato");
-    if ((nome === "profilo") && !G.io) return apriEntra();
+    if (!G.io) return entra();
     const sec = $("#g-pagina");
     const v = PAGINE[nome](arg);
     G.pagina = v;
