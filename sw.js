@@ -3,13 +3,14 @@ const VERSION = "v1";
 const SHELL = `shell-${VERSION}`;
 const DATA = "data";
 const TILES = "tiles";
-const ASSETS = ["./", "index.html", "style.css", "app.js", "orari.js", "routing.js", "config.js", "cripto.js", "manifest.webmanifest",
+const ASSETS = ["./", "index.html", "style.css", "app.js", "gioco.js", "orari.js", "routing.js", "config.js", "cripto.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/sangria.svg", "data/locali.json", "data/actv/index.json",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css",
   "https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js",
   "https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css",
-  "https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"];
+  "https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js",
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => Promise.allSettled(ASSETS.map((a) => c.add(a)))).then(() => self.skipWaiting()));
@@ -51,7 +52,7 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   if (url.hostname === "tile.openstreetmap.org" || (url.hostname === "tiles.openfreemap.org" && !url.pathname.startsWith("/styles/"))) return e.respondWith(tileCacheFirst(e.request));
   if (url.origin === location.origin && url.pathname.includes("/data/")) return e.respondWith(networkFirst(e.request, DATA));
-  if (url.origin === location.origin || url.hostname.includes("cdnjs") || url.hostname === "unpkg.com" || url.pathname.startsWith("/styles/") || url.hostname.includes("fonts.")) {
+  if (url.origin === location.origin || url.hostname.includes("cdnjs") || url.hostname === "unpkg.com" || url.hostname === "cdn.jsdelivr.net" || url.pathname.startsWith("/styles/") || url.hostname.includes("fonts.")) {
     return e.respondWith(networkFirst(e.request, SHELL));
   }
 });

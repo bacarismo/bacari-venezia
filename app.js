@@ -88,6 +88,7 @@
   }
 
   function toast(msg) {
+    document.querySelectorAll(".toast").forEach((x) => x.remove());
     const t = document.createElement("div");
     t.className = "toast";
     t.textContent = msg;
@@ -444,6 +445,7 @@
           ${near.length ? `<div class="section-t">Vaporetto più vicino</div><div class="list">${near.map((i) => rowFermata(i, l)).join("")}</div>` : ""}
           ${googleKey() ? '<div class="section-t">Su Google Maps</div><div id="gscheda"><button class="btn" id="gopen">Mostra la scheda Google</button></div>' : ""}`;
         if (googleKey()) caricaGoogle(l, el);
+        if (window.Gioco) Gioco.schedaLocale(l, el);
         $("#share", el).addEventListener("click", () => share(l.nome, "l=" + encodeURIComponent(l.id)));
         $("#go", el).addEventListener("click", () => openPercorso(l));
         $("#pref", el).addEventListener("click", (e) => {
@@ -1187,6 +1189,7 @@
     }
     fromHash(hash);
     invitoHome();
+    if (window.Gioco) Gioco.avvia();
   }
 
   // iPhone/iPad in Safari: la prima volta spiega come aggiungere l'app alla schermata Home
@@ -1202,6 +1205,13 @@
     d.querySelector(".x").addEventListener("click", () => d.remove());
     document.body.append(d);
   }
+  // quello che serve al gioco a punti (gioco.js)
+  window.App = {
+    locali: () => state.locali,
+    posizione: center,
+    haPosizione: () => !!state.me,
+    dist, norm, toast,
+  };
   init();
 
   if ("serviceWorker" in navigator && location.protocol === "https:") {
