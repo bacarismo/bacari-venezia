@@ -339,9 +339,7 @@
   async function ritagliaAvatar(file) {
     const src = await decodifica(file);
     const s = Math.min(src.width, src.height);
-    const c = document.createElement("canvas");
-    c.width = c.height = 400;
-    c.getContext("2d").drawImage(src, (src.width - s) / 2, (src.height - s) / 2, s, s, 0, 0, 400, 400);
+    const c = tela(src, (src.width - s) / 2, (src.height - s) / 2, s, s, 400, 400);
     const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
     if (!blob) throw new Error("Non riesco a leggere questa foto");
     return blob;
@@ -520,15 +518,31 @@
       return img;
     } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
   }
+  // ridimensiona a metà per volta: un solo salto da 4000px a 1600px su Safari viene sgranato
+  function tela(src, sx, sy, sw, sh, w, h) {
+    let img = src, x = sx, y = sy, cw = sw, ch = sh;
+    while (cw / 2 >= w && ch / 2 >= h) {
+      const t = document.createElement("canvas");
+      t.width = Math.round(cw / 2); t.height = Math.round(ch / 2);
+      const g = t.getContext("2d");
+      g.imageSmoothingQuality = "high";
+      g.drawImage(img, x, y, cw, ch, 0, 0, t.width, t.height);
+      img = t; x = 0; y = 0; cw = t.width; ch = t.height;
+    }
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    g.imageSmoothingQuality = "high";
+    g.drawImage(img, x, y, cw, ch, 0, 0, w, h);
+    return c;
+  }
   async function riduci(src, lato, maxByte) {
     const w0 = src.width, h0 = src.height;
     let k = Math.min(1, lato / Math.max(w0, h0));
-    let q = 0.82, blob = null, w, h;
+    let q = 0.85, blob = null, w, h;
     for (let i = 0; i < 6; i++) {
       w = Math.round(w0 * k); h = Math.round(h0 * k);
-      const c = document.createElement("canvas");
-      c.width = w; c.height = h;
-      c.getContext("2d").drawImage(src, 0, 0, w, h);
+      const c = tela(src, 0, 0, w0, h0, w, h);
       blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", q));
       if (!blob) throw new Error("Non riesco a leggere questa foto");
       if (blob.size <= maxByte) break;
@@ -540,7 +554,7 @@
     if (!/^image\//.test(file.type) && !/\.(jpe?g|png|heic|heif|webp)$/i.test(file.name)) throw new Error("Solo foto, niente video");
     let src;
     try { src = await decodifica(file); } catch (e) { throw new Error("Il telefono non riesce a leggere questa foto (" + (file.type || file.name) + ")"); }
-    const grande = await riduci(src, 1600, 300 * 1024);
+    const grande = await riduci(src, 1600, 450 * 1024);
     const piccola = await riduci(src, 480, 45 * 1024);
     return { grande, piccola, anteprima: URL.createObjectURL(grande.blob) };
   }
