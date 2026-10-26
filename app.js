@@ -59,6 +59,8 @@
   const layerLinea = L.layerGroup().addTo(map);
   let meMarker = null;
   let nav = null; // navigazione "in cammino" attiva
+  let sceltaSuMappa = false; // si sta scegliendo la partenza toccando la mappa
+  L.Path.mergeOptions({ bubblingMouseEvents: false }); // il tocco su un pallino non arriva alla mappa
   let selMarker = null;
 
   // ------------------------------------------------------------ utilità
@@ -317,6 +319,15 @@
       },
     };
   }
+  // tocco su un punto vuoto della mappa: si torna come all'avvio
+  map.on("click", () => {
+    if (sceltaSuMappa || nav) return;
+    q.value = "";
+    q.blur();
+    showTab("vicini");
+    setSheet("peek");
+  });
+
   let moveTimer;
   map.on("moveend", () => {
     clearTimeout(moveTimer);
@@ -799,7 +810,8 @@
             } else if (tipo === "mappa") {
               toast("Tocca la mappa nel punto da cui parti");
               setSheet("peek");
-              map.once("click", (ev) => { scelto = { lat: ev.latlng.lat, lon: ev.latlng.lng, nome: "punto sulla mappa" }; cerca = null; grow("half"); calcola(); });
+              sceltaSuMappa = true;
+              map.once("click", (ev) => { sceltaSuMappa = false; scelto = { lat: ev.latlng.lat, lon: ev.latlng.lng, nome: "punto sulla mappa" }; cerca = null; grow("half"); calcola(); });
               return;
             } else if (tipo === "ind") {
               b.querySelector(".t").textContent = "Cerco l'indirizzo…";
