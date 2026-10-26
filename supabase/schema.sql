@@ -305,6 +305,20 @@ create policy "leggi" on public.commenti for select to authenticated using (true
 create policy "scrivi il mio" on public.commenti for insert to authenticated with check (profilo_id = mio_profilo());
 create policy "cancella" on public.commenti for delete to authenticated using (profilo_id = mio_profilo() or sono_admin());
 
+-- permessi espliciti (copia di permessi.sql: i progetti nuovi non li danno in automatico)
+grant usage on schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant execute on function public.mio_profilo(), public.sono_admin() to authenticated;
+
+grant select on public.profili, public.regole, public.avvisi, public.foto, public.reazioni,
+  public.commenti, public.punti, public.classifica to authenticated;
+grant update (nome, bio, foto) on public.profili to authenticated;
+grant update (punti, nota, annullato) on public.punti to authenticated;
+grant insert, update, delete on public.avvisi to authenticated;
+grant insert, update, delete on public.foto to authenticated;
+grant insert, delete on public.reazioni to authenticated;
+grant insert, delete on public.commenti to authenticated;
+
 -- ------------------------------------------------------------ archivio foto (solo immagini, max 2 MB)
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
   values ('foto', 'foto', true, 2097152, array['image/jpeg', 'image/webp', 'image/png'])
