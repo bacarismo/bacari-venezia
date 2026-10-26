@@ -301,6 +301,14 @@ def apply_curati(locali, path, ristoranti=None, geocoder=geocodifica):
     for oid, tipo in cur.get("tipi", {}).items():
         if oid in by_id:
             by_id[oid]["tipo"] = tipo
+            continue
+        # su OSM può aver cambiato etichetta (es. da bar a restaurant): lo si riprende dalla ricerca ristoranti
+        r = next((r for r in ristoranti or [] if r.get("id") == oid), None)
+        if r:
+            loc = {k: v for k, v in r.items() if k != "tags"}
+            loc["tipo"] = tipo
+            locali.append(loc)
+            by_id[oid] = loc
         else:
             print(f"  curato: {oid} non è più su OSM", file=sys.stderr)
     stats = defaultdict(int)
@@ -329,6 +337,7 @@ def apply_curati(locali, path, ristoranti=None, geocoder=geocodifica):
         if not pos and circa:
             pos = circa
             stats["posizione stimata"] += 1
+            print(f"  curato con posizione stimata: {n['nome']}", file=sys.stderr)
         if not pos:
             print(f"  curato senza posizione, saltato: {n['nome']}", file=sys.stderr)
             continue
@@ -349,7 +358,11 @@ def ristoranti_osm():
         lat = el.get("lat") or el.get("center", {}).get("lat")
         lon = el.get("lon") or el.get("center", {}).get("lon")
         if lat is not None and lon is not None:
-            out.append({"nome": el["tags"]["name"], "lat": round(lat, 6), "lon": round(lon, 6)})
+            loc = {"id": f"{el['type']}/{el['id']}", "nome": el["tags"]["name"], "lat": round(lat, 6), "lon": round(lon, 6)}
+            a = address(el["tags"])
+            if a:
+                loc["indirizzo"] = a
+            out.append(loc)
     return out
 
 

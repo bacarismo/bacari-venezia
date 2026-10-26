@@ -45,7 +45,7 @@ class TestCurati(unittest.TestCase):
         ids = {l["nome"]: l["id"] for l in locali}
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
             json.dump({
-                "tipi": {ids["Bar Esempio"]: "bacaro"},
+                "tipi": {ids["Bar Esempio"]: "bacaro", "node/999": "bacaro"},
                 "escludi": [ids["Caffè Esempio"]],
                 "nuovi": [
                     {"nome": "Bacaro Nuovo", "tipo": "bacaro", "indirizzo": "Calle X 1", "sestiere": "San Polo",
@@ -54,7 +54,8 @@ class TestCurati(unittest.TestCase):
                     {"nome": "Trovato Per Nome", "tipo": "bar", "circa": [45.4300, 12.3300]},
                     {"nome": "Senza niente", "tipo": "bacaro"},
                 ]}, f)
-        ristoranti = [{"nome": "Ristorante Trovato per nome", "lat": 45.4310, "lon": 12.3305}]
+        ristoranti = [{"nome": "Ristorante Trovato per nome", "lat": 45.4310, "lon": 12.3305},
+                      {"id": "node/999", "nome": "Ora è un ristorante", "lat": 45.44, "lon": 12.34}]
         out = build_data.apply_curati(locali, f.name, ristoranti, geocoder=None)
         os.unlink(f.name)
         by = {l["nome"]: l for l in out}
@@ -65,6 +66,7 @@ class TestCurati(unittest.TestCase):
         self.assertEqual((by["Bacaro Nuovo"]["lat"], by["Bacaro Nuovo"]["lon"]), (45.438, 12.335))
         self.assertEqual(by["Trovato Per Nome"]["lat"], 45.431)  # posizione presa da OSM
         self.assertNotIn("Senza niente", by)
+        self.assertEqual(by["Ora è un ristorante"]["tipo"], "bacaro")  # cambiato etichetta su OSM
         self.assertNotIn("Vineria Esempio Bis", by)  # già su OSM con un nome simile
         # rifarlo sul risultato non crea doppioni
         self.assertEqual(sum(l["nome"] == "Bacaro Nuovo" for l in out), 1)
