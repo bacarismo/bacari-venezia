@@ -499,6 +499,8 @@ body:not(.gioco) .gfab, body.navigando .gfab, body.locked .gfab, body.navigando 
 .g-avpick span { font-size: 30px; line-height: 1; }
 .g-avpick img { width: 104px; height: 104px; object-fit: cover; display: block; }
 .g-nota { text-align: center; }
+.g-benv-x { position: absolute; left: max(10px, var(--safe-l)); top: calc(var(--safe-t) + 10px); border: 0; background: none; color: var(--muted); font-weight: 700; font-size: 16px; padding: 8px; }
+.g-dopo { justify-self: center; border: 0; background: none; color: var(--muted); text-decoration: underline; font-size: 15px; padding: 8px; }
 .g-err { margin: 0; color: var(--ko); font-weight: 700; text-align: center; }
 .g-err[hidden] { display: none; }
 body.benvenuto .gfab, body.benvenuto .invito { display: none; }
