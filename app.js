@@ -149,8 +149,8 @@
   const casa = window.CONFIG && CONFIG.casa;
   const ICON_CASA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5h4v5"/></svg>';
   if (casa) {
-    L.marker([casa.lat, casa.lon], { icon: L.divIcon({ className: "", html: `<span class="casa-ic">${ICON_CASA}</span>`, iconSize: [32, 32] }), zIndexOffset: 900 })
-      .bindTooltip(casa.nome, { direction: "top", offset: [0, -14] })
+    L.marker([casa.lat, casa.lon], { icon: L.divIcon({ className: "", html: `<span class="casa-ic">${ICON_CASA}</span>`, iconSize: [26, 26] }), zIndexOffset: 900 })
+      .bindTooltip(casa.nome, { direction: "top", offset: [0, -11] })
       .on("click", () => openPercorso(casa))
       .addTo(map);
     const btn = $("#casa");

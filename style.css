@@ -129,10 +129,10 @@ a { color: var(--bar); }
 .chip-casa { color: var(--ink); font-weight: 700; border: 2px solid var(--fluo); }
 .chip-casa svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
 .casa-btn[hidden], .chip-casa[hidden] { display: none; }
-.casa-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.casa-ic svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
 .casa-ic {
-  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
-  background: #12201a; color: var(--fluo); box-shadow: 0 0 0 3px var(--fluo), 0 2px 8px rgba(0,0,0,.35);
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: #12201a; color: var(--fluo); box-shadow: 0 0 0 2.5px var(--fluo), 0 2px 8px rgba(0,0,0,.35);
 }
 .handle { border: 0; background: none; padding: 12px 0 10px; width: 100%; display: grid; place-items: center; flex: none; touch-action: none; cursor: grab; }
 .handle span { width: 52px; height: 6px; border-radius: 3px; background: var(--muted); opacity: .45; }
