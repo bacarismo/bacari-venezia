@@ -6,7 +6,10 @@ const TILES = "tiles";
 const ASSETS = ["./", "index.html", "style.css", "app.js", "orari.js", "manifest.webmanifest",
   "icons/icon-192.png", "data/locali.json", "data/actv/index.json",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"];
+  "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css",
+  "https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css",
+  "https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => Promise.allSettled(ASSETS.map((a) => c.add(a)))).then(() => self.skipWaiting()));
@@ -46,9 +49,9 @@ async function tileCacheFirst(req) {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
-  if (url.hostname === "tile.openstreetmap.org") return e.respondWith(tileCacheFirst(e.request));
+  if (url.hostname === "tile.openstreetmap.org" || (url.hostname === "tiles.openfreemap.org" && !url.pathname.startsWith("/styles/"))) return e.respondWith(tileCacheFirst(e.request));
   if (url.origin === location.origin && url.pathname.includes("/data/")) return e.respondWith(networkFirst(e.request, DATA));
-  if (url.origin === location.origin || url.hostname.includes("cdnjs") || url.hostname.includes("fonts.")) {
+  if (url.origin === location.origin || url.hostname.includes("cdnjs") || url.hostname === "unpkg.com" || url.pathname.startsWith("/styles/") || url.hostname.includes("fonts.")) {
     return e.respondWith(networkFirst(e.request, SHELL));
   }
 });

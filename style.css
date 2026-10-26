@@ -56,7 +56,7 @@ a { color: var(--bar); }
 .leaflet-container { font-family: var(--body); background: var(--bg); }
 .leaflet-control-attribution { font-size: 10px; }
 @media (prefers-color-scheme: dark) {
-  .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
+  .osm-raster { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
 }
 .leaflet-top.leaflet-left { display: none; }
 

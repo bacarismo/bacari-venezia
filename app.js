@@ -24,15 +24,35 @@
   // ------------------------------------------------------------ mappa
   const map = L.map("map", { zoomControl: false, preferCanvas: true, minZoom: 11, maxZoom: 19 })
     .setView([45.4372, 12.3346], 15);
-  // Sfondo OpenStreetMap standard: non richiede chiavi. In tema scuro lo si scurisce via CSS.
-  // maxNativeZoom 16: da 17 in su OSM disegna i numeri civici, che a Venezia coprono tutto.
-  // Oltre il 16 si ingrandiscono le immagini del 16.
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    maxNativeZoom: 16,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Orari ACTV',
-  }).addTo(map);
-  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => drawLocali());
+  // Sfondo vettoriale OpenFreeMap (gratis, senza chiave): nitido a ogni zoom.
+  // Dallo stile si tolgono numeri civici e punti di interesse, così restano solo i nostri locali.
+  // Se il telefono non ha WebGL o lo stile non si carica, si torna alle immagini OSM (ferme allo zoom 16).
+  const ATTR = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · <a href="https://openfreemap.org">OpenFreeMap</a> · Orari ACTV';
+  const darkMq = matchMedia("(prefers-color-scheme: dark)");
+  let base = null;
+  function rasterBase() {
+    return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, maxNativeZoom: 16, className: "osm-raster",
+      attribution: ATTR.replace(" · <a href=\"https://openfreemap.org\">OpenFreeMap</a>", ""),
+    });
+  }
+  async function setBase() {
+    let layer;
+    try {
+      const c = document.createElement("canvas");
+      if (!L.maplibreGL || !window.maplibregl || !(c.getContext("webgl2") || c.getContext("webgl"))) throw new Error("niente WebGL");
+      const url = `https://tiles.openfreemap.org/styles/${darkMq.matches ? "dark" : "positron"}`;
+      const style = await (await fetch(url)).json();
+      style.layers = style.layers.filter((l) => !/housenumber|poi/i.test(l.id));
+      layer = L.maplibreGL({ style, attribution: ATTR });
+    } catch (e) {
+      layer = rasterBase();
+    }
+    if (base) map.removeLayer(base);
+    base = layer.addTo(map);
+  }
+  setBase();
+  darkMq.addEventListener?.("change", () => { setBase(); drawLocali(); });
 
   const layerLocali = L.layerGroup().addTo(map);
   const layerFermate = L.layerGroup().addTo(map);
