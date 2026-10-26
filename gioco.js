@@ -238,13 +238,14 @@
   function chiudiPagina() { $("#g-pagina").hidden = true; G.pagina = null; }
 
   // ------------------------------------------------------------ entra / crea profilo
-  // Pagina di avvio dopo la password del gruppo: iscriviti o accedi. Non si chiude finché non si entra.
+  // Pagina di avvio dopo la password del gruppo: iscriviti o accedi (o rimanda e vai alla mappa).
   function apriEntra() {
     if ($(".g-benvenuto")) return;
     let foto = null;
     const pag = document.createElement("div");
     pag.className = "g-benvenuto";
     pag.innerHTML = `
+      <button type="button" class="g-benv-x" data-chiudi aria-label="Torna alla mappa">‹ Mappa</button>
       <div class="g-benv-in">
         <img src="icons/icon-192.png" alt="" width="64" height="64">
         <h1>Bacaro Tour 2026</h1>
@@ -258,12 +259,16 @@
           <button class="btn primary" type="submit">Iscriviti</button>
           <p class="g-err" id="g-err" role="alert" hidden></p>
           <p class="muted g-nota" id="g-nota">Su questo telefono resti collegato. Da un altro telefono, o dopo aver messo l'app nella Home, usa Accedi col tuo nome.</p>
+          <button type="button" class="g-dopo" data-chiudi>Più tardi, vai alla mappa</button>
         </form>
       </div>`;
     document.body.append(pag);
     document.body.classList.add("benvenuto");
     let modo = "nuovo";
     const f = $("#g-entra", pag);
+    // si può rimandare: poi dal menu ☰ si torna qui con Iscriviti / Accedi
+    const chiudi = () => { pag.remove(); document.body.classList.remove("benvenuto"); };
+    pag.querySelectorAll("[data-chiudi]").forEach((b) => b.addEventListener("click", chiudi));
     pag.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => {
       modo = b.dataset.m;
       pag.querySelectorAll("[data-m]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
@@ -308,8 +313,7 @@
         await caricaProfili();
         G.io = G.profili.get(r.data);
         if (modo === "nuovo" && foto) await salvaAvatar(foto).catch(() => toast("Profilo creato, ma la foto non è partita: riprova da Profilo"));
-        pag.remove();
-        document.body.classList.remove("benvenuto");
+        chiudi();
         aggiornaMenu();
         toast(modo === "nuovo" ? `Benvenuto ${G.io.nome}! Tocca + per segnare punti` : `Bentornato ${G.io.nome}`);
       } catch (err) {
