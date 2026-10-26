@@ -35,9 +35,12 @@
 </form>
 
 <header class="topbar">
+  <div class="toprow">
+  <button id="menuBtn" class="menu-btn" aria-label="Menu del gioco" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <div class="searchbox">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
     <input id="q" type="search" placeholder="Cerca un bacaro o una fermata" autocomplete="off" enterkeyhint="search">
+  </div>
   </div>
   <div class="chips" role="group" aria-label="Cosa mostrare">
     <button class="chip chip-casa" id="chipcasa" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5h4v5"/></svg>Casa</button>
@@ -68,10 +71,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
 <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
 <script src="config.js?v=__V__"></script>
 <script src="cripto.js?v=__V__"></script>
 <script src="orari.js?v=__V__"></script>
 <script src="routing.js?v=__V__"></script>
+<script src="gioco.js?v=__V__"></script>
 <script src="app.js?v=__V__"></script>
 </body>
 </html>
