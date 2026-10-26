@@ -33,7 +33,7 @@ jobs:
       - name: Prepara il sito
         run: |
           mkdir _site
-          cp -r index.html style.css app.js orari.js routing.js sw.js manifest.webmanifest icons data _site/
+          cp -r index.html style.css app.js orari.js routing.js config.js sw.js manifest.webmanifest icons data _site/
           sed -i "s/const VERSION = \"v1\"/const VERSION = \"$(date +%Y%m%d%H%M)\"/" _site/sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

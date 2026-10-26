@@ -174,6 +174,7 @@
   function sheetHeight() { return SIZES[sheet.dataset.state](); }
   function setSheet(s) {
     sheet.dataset.state = s;
+    document.body.dataset.sheet = s;
     document.documentElement.style.setProperty("--sheet-h", sheetHeight() + "px");
   }
   setSheet("peek");
@@ -373,6 +374,7 @@
         el.innerHTML = `${backButton()}
           <h2>${esc(l.nome)}</h2>
           <div class="kind"><span class="tag ${l.tipo}">${TIPI[l.tipo]}</span>${l.preferito ? '<span class="tag star">★ Preferito</span>' : ""}${stato}</div>
+          ${googleKey() ? '<div id="gfoto" class="gfoto" aria-live="polite"></div>' : ""}
           ${notes.join("")}
           <div class="actions">
             <button class="btn primary" id="go">Portami qui</button>
@@ -380,10 +382,66 @@
             ${isOsm ? `<a class="btn" target="_blank" rel="noopener" href="https://www.openstreetmap.org/${esc(l.id)}">Correggi su OSM</a>` : ""}
           </div>
           ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>` : `<p class="muted">Di questo locale OpenStreetMap non ha orari né contatti.</p>`}
-          ${near.length ? `<div class="section-t">Vaporetto più vicino</div><div class="list">${near.map((i) => rowFermata(i, l)).join("")}</div>` : ""}`;
+          ${near.length ? `<div class="section-t">Vaporetto più vicino</div><div class="list">${near.map((i) => rowFermata(i, l)).join("")}</div>` : ""}
+          ${googleKey() ? '<div class="section-t">Su Google Maps</div><div id="gscheda"><button class="btn" id="gopen">Mostra la scheda Google</button></div>' : ""}`;
+        if (googleKey()) caricaGoogle(l, el);
         $("#share", el).addEventListener("click", () => share(l.nome, "l=" + encodeURIComponent(l.id)));
         $("#go", el).addEventListener("click", () => openPercorso(l));
       },
+    });
+  }
+
+  // ------------------------------------------------------------ Google: foto e scheda del locale
+  // Per risparmiare: una sola ricerca per locale (solo campi id, nome, foto, link) e solo quando si apre la scheda.
+  const googleKey = () => (window.CONFIG && CONFIG.googleKey) || "";
+  const gCache = new Map();
+  function gPlace(l) {
+    if (gCache.has(l.id)) return gCache.get(l.id);
+    const p = fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": googleKey(),
+        "X-Goog-FieldMask": "places.id,places.displayName,places.location,places.photos,places.googleMapsUri",
+      },
+      body: JSON.stringify({
+        textQuery: `${l.nome}, Venezia`,
+        languageCode: "it",
+        maxResultCount: 1,
+        locationBias: { circle: { center: { latitude: l.lat, longitude: l.lon }, radius: 100 } },
+      }),
+    }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("google " + r.status))))
+      .then((j) => {
+        const g = j.places && j.places[0];
+        // se Google trova un posto lontano non è lo stesso locale
+        if (!g || !g.location || dist(l, { lat: g.location.latitude, lon: g.location.longitude }) > 150) return null;
+        return g;
+      });
+    gCache.set(l.id, p);
+    p.catch(() => gCache.delete(l.id));
+    return p;
+  }
+  async function caricaGoogle(l, el) {
+    const box = $("#gfoto", el);
+    let g = null;
+    try { g = await gPlace(l); } catch (e) {
+      box.remove();
+      const sc = $("#gscheda", el);
+      if (sc) sc.innerHTML = '<p class="muted">Scheda Google non disponibile in questo momento.</p>';
+      return;
+    }
+    if (!box.isConnected) return;
+    if (!g) { box.remove(); $("#gscheda", el).innerHTML = '<p class="muted">Locale non trovato su Google Maps.</p>'; return; }
+    const ph = g.photos && g.photos[0];
+    if (ph) {
+      const autore = (ph.authorAttributions || [])[0];
+      box.innerHTML = `<img alt="Foto di ${esc(l.nome)}" loading="lazy" src="https://places.googleapis.com/v1/${esc(ph.name)}/media?maxWidthPx=800&key=${encodeURIComponent(googleKey())}">
+        <p class="credit">Foto${autore ? ` di <a href="${esc(autore.uri)}" target="_blank" rel="noopener">${esc(autore.displayName)}</a>` : ""} · Google Maps</p>`;
+    } else box.remove();
+    $("#gopen", el)?.addEventListener("click", () => {
+      $("#gscheda", el).innerHTML = `<iframe class="gembed" title="Scheda Google di ${esc(l.nome)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+        src="https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(googleKey())}&q=place_id:${encodeURIComponent(g.id)}&language=it"></iframe>
+        ${g.googleMapsUri ? `<a class="btn" href="${esc(g.googleMapsUri)}" target="_blank" rel="noopener">Recensioni su Google Maps</a>` : ""}`;
     });
   }
 
