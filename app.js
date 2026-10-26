@@ -5,13 +5,13 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const TIPI = { bacaro: "Bacaro", bar: "Bar", caffe: "Caffè" };
+  const TIPI = { bacaro: "Bacaro", osteria: "Osteria", bar: "Bar", caffe: "Caffè" };
   const GIORNI = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
 
   const state = {
     locali: [],
     actv: null,
-    filtri: { bacaro: true, bar: true, caffe: false, fermate: true, aperti: false },
+    filtri: { bacaro: true, osteria: true, bar: true, caffe: false, fermate: true, aperti: false },
     me: null,
     stack: [],
     cache: new Map(),
@@ -123,7 +123,7 @@
 
   function drawLocali() {
     layerLocali.clearLayers();
-    const col = { bacaro: css("--ombra"), bar: css("--bar"), caffe: css("--caffe") };
+    const col = { bacaro: css("--ombra"), osteria: css("--osteria"), bar: css("--bar"), caffe: css("--caffe") };
     const ring = css("--surface");
     for (const l of state.locali) {
       if (!visibile(l)) continue;
@@ -135,7 +135,7 @@
         });
       } else {
         mk = L.circleMarker([l.lat, l.lon], {
-          radius: l.tipo === "bacaro" ? 7 : l.tipo === "bar" ? 5.5 : 4.5,
+          radius: l.tipo === "bacaro" || l.tipo === "osteria" ? 7 : l.tipo === "bar" ? 5.5 : 4.5,
           color: ring, weight: 1.5, fillColor: col[l.tipo], fillOpacity: 1,
         });
       }

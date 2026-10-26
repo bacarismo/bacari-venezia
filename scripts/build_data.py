@@ -77,9 +77,14 @@ def fetch_osm(query=OVERPASS_QUERY):
     raise RuntimeError(f"Overpass non raggiungibile: {last}")
 
 
+OSTERIA_RE = re.compile(r"osteri|ostaria", re.I)
+
+
 def classify(tags):
     amenity = tags.get("amenity", "")
     name = tags.get("name", "")
+    if OSTERIA_RE.search(name):
+        return "osteria"
     if amenity == "wine_bar" or tags.get("shop") == "wine":
         return "bacaro"
     if amenity == "restaurant":

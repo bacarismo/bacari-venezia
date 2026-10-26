@@ -17,7 +17,7 @@ class TestLocali(unittest.TestCase):
         self.assertEqual(loc["Bar Esempio"]["tipo"], "bar")
         self.assertEqual(loc["Vineria Esempio"]["tipo"], "bacaro")
         self.assertEqual(loc["Caffè Esempio"]["tipo"], "caffe")
-        self.assertEqual(loc["Osteria Esempio"]["tipo"], "bacaro")
+        self.assertEqual(loc["Osteria Esempio"]["tipo"], "osteria")
         self.assertEqual(loc["Cantina Do Mori"]["indirizzo"], "Calle dei Do Mori 429")
         self.assertEqual(loc["Vineria Esempio"]["lat"], 45.4352)
         self.assertEqual(len(loc), 5)  # quello senza nome è scartato
