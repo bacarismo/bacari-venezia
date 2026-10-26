@@ -480,3 +480,23 @@ body:not(.gioco) .gfab, body.navigando .gfab, body.locked .gfab, body.navigando 
 .g-tab td:last-child { text-align: right; font-weight: 800; color: var(--ombra); white-space: nowrap; }
 .g-tab small { color: var(--muted); }
 .g-regole { padding-left: 20px; margin: 0; display: grid; gap: 6px; }
+
+/* ---------- pagina di avvio del gioco: iscriviti / accedi */
+.g-benvenuto {
+  position: fixed; inset: 0; z-index: 2600; background: var(--bg); overflow-y: auto;
+  padding: calc(var(--safe-t) + 28px) max(20px, var(--safe-l)) calc(var(--safe-b) + 28px) max(20px, var(--safe-r));
+}
+.g-benv-in { max-width: 380px; margin: 0 auto; display: grid; justify-items: center; text-align: center; gap: 6px; }
+.g-benv-in > img { border-radius: 16px; }
+.g-benv-in h1 { font: 800 30px var(--display); margin: 4px 0 0; }
+.g-benv-in p { margin: 0; }
+.g-benv-in .g-seg, .g-benv-in .g-form { width: 100%; text-align: left; }
+.g-benv-in .g-form [hidden] { display: none; }
+.g-avpick {
+  justify-self: center; width: 104px; height: 104px; border-radius: 50%; border: 2px dashed var(--line);
+  background: var(--surface); display: grid; place-content: center; justify-items: center; overflow: hidden; padding: 0; color: var(--muted);
+}
+.g-avpick span { font-size: 30px; line-height: 1; }
+.g-avpick img { width: 104px; height: 104px; object-fit: cover; display: block; }
+.g-nota { text-align: center; }
+body.benvenuto .gfab, body.benvenuto .invito { display: none; }
