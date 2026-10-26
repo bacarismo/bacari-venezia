@@ -798,7 +798,7 @@
       render(el) {
         const draw = () => {
           layerLinea.clearLayers();
-          let h = `${backButton()}<h2>Come arrivo a ${esc(dest.nome)}</h2>
+          let h = `${backButton()}<h2>${dest === casa ? "" : "Come arrivo a "}${esc(dest.nome)}</h2>
             <p class="muted">Partenza: <b>${esc(etichetta)}</b> · <button class="linkbtn" id="chorig">${cerca === null ? "cambia" : "chiudi"}</button></p>
             ${cerca !== null ? htmlPartenza() : ""}
             <div class="daybar"><button data-m="piedi" aria-pressed="${modo === "piedi"}">A piedi</button><button data-m="vap" aria-pressed="${modo === "vap"}">Vaporetto + piedi</button></div>`;
