@@ -431,6 +431,8 @@ def build_gtfs(zip_bytes, horizon_days=120):
         la, lo = _centroid(groups[n]["pts"])
         out_stops.append({
             "nome": n, "lat": round(la, 6), "lon": round(lo, 6),
+            # i singoli pontili (Rialto "A", "B"...): servono a calcolare bene il tratto a piedi
+            "pontili": [[round(a, 6), round(b, 6)] for a, b in sorted(set(groups[n]["pts"]))],
             "linee": sorted(r for r in route_stops if i in route_stops[r]),
         })
 
@@ -457,7 +459,10 @@ def _centroid(pts):
 
 WALK_QUERY = """
 [out:json][timeout:180];
-way["highway"~"^(footway|pedestrian|path|steps|living_street|residential|service|unclassified|tertiary|secondary|primary|track|cycleway|corridor|platform)$"]({s},{w},{n},{e});
+(
+  way["highway"~"^(footway|pedestrian|path|steps|living_street|residential|service|unclassified|tertiary|secondary|primary|track|cycleway|corridor|platform)$"]({s},{w},{n},{e});
+  way["man_made"="pier"]({s},{w},{n},{e});
+);
 out body;
 >;
 out skel qt;

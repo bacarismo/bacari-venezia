@@ -251,3 +251,4 @@ h2 { font: 800 26px/1.1 var(--display); margin: 0 0 6px; text-wrap: balance; let
 body[data-sheet="full"] .fab { display: none; }
 .origini { margin: 0 0 10px; padding: 10px; background: var(--bg); border-radius: 14px; }
 .searchbox.inline { box-shadow: none; border: 1px solid var(--line); height: 44px; max-width: none; margin-bottom: 4px; }
+.row.opt .s { white-space: normal; }

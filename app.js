@@ -646,13 +646,23 @@
     const piedi = P.path(daO, d.node);
     const res = { o, d, daO, daD, piedi, piediMin: piedi ? Math.max(1, Math.round(walkMin(daO, d.node, o.dist + d.dist))) : null, opzioni: [] };
     if (!state.actv) return res;
-    if (!stopNodes) stopNodes = state.actv.fermate.map((f) => P.nearest(f.lat, f.lon));
+    // per ogni fermata, il nodo pedonale di ciascun pontile (Rialto "A", "B"...): si usa il più comodo
+    if (!stopNodes) stopNodes = state.actv.fermate.map((f) => (f.pontili && f.pontili.length ? f.pontili : [[f.lat, f.lon]]).map(([la, lo]) => P.nearest(la, lo)));
     const verso = (res2, extra, max) => stopNodes
-      .map((sn, i) => ({ i, min: walkMin(res2, sn.node, extra + sn.dist) }))
+      .map((pts, i) => {
+        let bestMin = Infinity, node = -1;
+        for (const sn of pts) {
+          const m = walkMin(res2, sn.node, extra + sn.dist);
+          if (m < bestMin) { bestMin = m; node = sn.node; }
+        }
+        return { i, min: bestMin, node };
+      })
       .filter((x) => isFinite(x.min) && x.min <= max)
-      .sort((a, b) => a.min - b.min).slice(0, 5);
+      .sort((a, b) => a.min - b.min).slice(0, 8);
     const salita = verso(daO, o.dist, 20);
-    const discesa = new Map(verso(daD, d.dist, 15).map((x) => [x.i, x.min]));
+    const scese = verso(daD, d.dist, 20);
+    const discesa = new Map(scese.map((x) => [x.i, x.min]));
+    res.nodoFermata = new Map([...salita.map((x) => ["a" + x.i, x.node]), ...scese.map((x) => ["b" + x.i, x.node])]);
     if (!salita.length || !discesa.size) return res;
     const ora = nowMin();
     const oggi = new Date();
@@ -670,7 +680,7 @@
           const b = ferm[k][0];
           if (!discesa.has(b) || b === a.i) continue;
           const arrivo = (dep.ieri ? ferm[k][1] - 1440 : ferm[k][1]) + Math.ceil(discesa.get(b));
-          const key = `${dep.r}|${dep.t}${dep.ieri ? "i" : ""}`; // una sola opzione per corsa
+          const key = `${dep.r}|${dep.t}${dep.ieri ? "i" : ""}|${b}`; // per corsa e fermata di discesa
           const walk = Math.ceil(a.min) + Math.ceil(discesa.get(b));
           const cur = best.get(key);
           if (!cur || cur.arrivo > arrivo || (cur.arrivo === arrivo && cur.walkA + cur.walkB > walk)) {
@@ -681,7 +691,15 @@
       }
     }
     const limite = res.piediMin != null ? ora + res.piediMin : Infinity;
-    res.opzioni = [...best.values()].filter((x) => x.arrivo < limite).sort((x, y) => x.arrivo - y.arrivo).slice(0, 4);
+    // per ogni corsa si tiene la discesa che fa arrivare prima (a pari arrivo, meno strada a piedi)
+    const perCorsa = new Map();
+    for (const x of best.values()) {
+      const k = `${x.r}|${x.parte}|${x.a}`;
+      const c = perCorsa.get(k);
+      if (!c || x.arrivo < c.arrivo || (x.arrivo === c.arrivo && x.walkA + x.walkB < c.walkA + c.walkB)) perCorsa.set(k, x);
+    }
+    res.opzioni = [...perCorsa.values()].filter((x) => x.arrivo < limite)
+      .sort((x, y) => x.arrivo - y.arrivo || (x.walkA + x.walkB) - (y.walkA + y.walkB)).slice(0, 4);
     return res;
   }
 
@@ -773,7 +791,7 @@
           if (!ops.length) return `<p class="empty">${piano.piediMin != null && piano.piediMin <= 25 ? `Fai prima a piedi: ${minuti(piano.piediMin)}.` : "Nessun vaporetto diretto utile nei prossimi 90 minuti."}</p>`;
           const o = ops[Math.min(scelta, ops.length - 1)];
           const F = (g) => esc(state.actv.fermate[g].nome);
-          return `<div class="list">${ops.map((x, i) => `<button class="row opt${i === scelta ? " on" : ""}" data-o="${i}">${lineaBadge(x.r)}<div><div class="t">${hhmm(x.parte)} da ${F(x.a)}</div><div class="s">arrivo ${hhmm(x.arrivo)} · ${x.walkA + x.walkB} min a piedi</div></div><div class="m"><b>${minuti(x.arrivo - nowMin())}</b></div></button>`).join("")}</div>
+          return `<div class="list">${ops.map((x, i) => `<button class="row opt${i === scelta ? " on" : ""}" data-o="${i}">${lineaBadge(x.r)}<div><div class="t">${hhmm(x.parte)} da ${F(x.a)}</div><div class="s">scendi a ${F(x.b)} · arrivo ${hhmm(x.arrivo)} · ${x.walkA + x.walkB} min a piedi</div></div><div class="m"><b>${minuti(x.arrivo - nowMin())}</b></div></button>`).join("")}</div>
             <ol class="steps">
               ${o.walkA > 1 ? `<li class="piedi"><span>Cammina fino al pontile ${F(o.a)}</span><span class="m">${o.walkA} min</span></li>` : ""}
               <li class="vap"><span>Prendi la linea ${esc(state.actv.linee[o.r].nome)} → ${esc(state.actv.capolinea[o.h])} alle <b>${hhmm(o.parte)}</b></span><span class="m">${o.tappe.length - 1} ferm.</span></li>
@@ -791,9 +809,8 @@
             pts.push(...piano.piedi.coords);
           } else if (modo === "vap" && piano.opzioni.length) {
             const o = piano.opzioni[Math.min(scelta, piano.opzioni.length - 1)];
-            const fa = stopNodes[o.a], fb = stopNodes[o.b];
-            const p1 = Percorsi.path(piano.daO, fa.node);
-            const p2 = Percorsi.path(piano.daD, fb.node);
+            const p1 = Percorsi.path(piano.daO, piano.nodoFermata.get("a" + o.a));
+            const p2 = Percorsi.path(piano.daD, piano.nodoFermata.get("b" + o.b));
             if (p1) { disegnaPiedi(p1.coords, true); pts.push(...p1.coords); }
             if (p2) { disegnaPiedi(p2.coords.slice().reverse(), true); pts.push(...p2.coords); }
             const ride = o.tappe.map((g) => [state.actv.fermate[g].lat, state.actv.fermate[g].lon]);
