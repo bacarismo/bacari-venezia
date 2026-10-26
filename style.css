@@ -504,3 +504,13 @@ body:not(.gioco) .gfab, body.navigando .gfab, body.locked .gfab, body.navigando 
 .g-err { margin: 0; color: var(--ko); font-weight: 700; text-align: center; }
 .g-err[hidden] { display: none; }
 body.benvenuto .gfab, body.benvenuto .invito { display: none; }
+
+/* ---------- admin: profili */
+.g-nuovo { width: 100%; justify-content: center; margin: 12px 0 6px; padding: 11px; }
+.g-plist { display: grid; }
+.g-prow { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.g-prow-t { flex: 1; min-width: 0; overflow: hidden; }
+.g-prow-t small { display: block; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-prow .g-adm { margin: 0; flex: none; flex-direction: column; align-items: stretch; }
+.g-check { display: flex !important; flex-direction: row; gap: 8px; align-items: center; font-weight: 400 !important; }
+.g-check input { width: auto; }
