@@ -52,7 +52,10 @@
 </button>
 
 <section id="sheet" class="sheet" data-state="peek" aria-live="polite">
-  <button class="handle" id="handle" aria-label="Espandi o riduci"><span></span></button>
+  <div class="grip" id="grip">
+    <button class="handle" id="handle" aria-label="Espandi o riduci"><span></span></button>
+    <button class="casa-btn" id="casa" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5h4v5"/></svg>Portami a casa</button>
+  </div>
   <nav class="tabs" id="tabs">
     <button data-tab="vicini" aria-selected="true">Qui intorno</button>
     <button data-tab="linee" aria-selected="false">Linee</button>

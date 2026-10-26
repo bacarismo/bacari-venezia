@@ -11,6 +11,7 @@
   --caffe: #8a6a43;
   --actv: #f2c300;         /* giallo pontile ACTV */
   --actv-ink: #2a2300;
+  --fluo: #3cff6e;          /* casa */
   --ok: #2e7d4f;
   --ko: #a33a2a;
   --shadow: 0 6px 24px rgba(29, 36, 34, .16);
@@ -117,6 +118,19 @@ a { color: var(--bar); }
   .fab { right: max(16px, var(--safe-r)); bottom: 24px; }
 }
 @media (prefers-reduced-motion: reduce) { .sheet, .fab { transition: none; } }
+.grip { position: relative; flex: none; touch-action: none; min-height: 48px; }
+.casa-btn {
+  position: absolute; right: max(12px, var(--safe-r)); top: 8px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 10px;
+  border: 2.5px solid var(--fluo); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font: 700 14px var(--body); box-shadow: 0 0 10px color-mix(in srgb, var(--fluo) 55%, transparent);
+}
+.casa-btn svg, .casa-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.casa-btn:active { background: var(--fluo); }
+.casa-ic {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  background: #12201a; color: var(--fluo); box-shadow: 0 0 0 3px var(--fluo), 0 2px 8px rgba(0,0,0,.35);
+}
 .handle { border: 0; background: none; padding: 12px 0 10px; width: 100%; display: grid; place-items: center; flex: none; touch-action: none; cursor: grab; }
 .handle span { width: 52px; height: 6px; border-radius: 3px; background: var(--muted); opacity: .45; }
 .handle:active span { opacity: .8; }

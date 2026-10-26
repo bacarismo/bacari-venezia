@@ -145,6 +145,19 @@
     }
   }
 
+  // Casa: unica, sempre visibile, fuori dai filtri
+  const casa = window.CONFIG && CONFIG.casa;
+  const ICON_CASA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5h4v5"/></svg>';
+  if (casa) {
+    L.marker([casa.lat, casa.lon], { icon: L.divIcon({ className: "", html: `<span class="casa-ic">${ICON_CASA}</span>`, iconSize: [32, 32] }), zIndexOffset: 900 })
+      .bindTooltip(casa.nome, { direction: "top", offset: [0, -14] })
+      .on("click", () => openPercorso(casa))
+      .addTo(map);
+    const btn = $("#casa");
+    btn.hidden = false;
+    btn.addEventListener("click", () => { q.value = ""; openPercorso(casa); });
+  }
+
   function drawFermate() {
     layerFermate.clearLayers();
     if (!state.actv || !state.filtri.fermate || map.getZoom() < 13) return;
@@ -175,7 +188,7 @@
   const sheet = $("#sheet");
   const tabsEl = () => $("#tabs");
   const body = $("#body");
-  const SIZES = { peek: () => 160, half: () => Math.round(innerHeight * 0.5), full: () => innerHeight - 120 };
+  const SIZES = { peek: () => 178, half: () => Math.round(innerHeight * 0.5), full: () => innerHeight - 120 };
   function sheetHeight() { return SIZES[sheet.dataset.state](); }
   function setSheet(s) {
     sheet.dataset.state = s;
@@ -190,7 +203,7 @@
     const h = $("#handle");
     let y0 = null, hh0 = 0, t0 = 0, moved = false, presa = null;
     sheet.addEventListener("pointerdown", (e) => {
-      presa = e.target.closest("#handle, #tabs");
+      presa = !e.target.closest("#casa") && e.target.closest("#handle, #grip, #tabs");
       if (!presa || e.button > 0) return;
       y0 = e.clientY; hh0 = sheet.offsetHeight; t0 = e.timeStamp; moved = false;
     });
@@ -208,7 +221,7 @@
       const dy = y0 - e.clientY, dt = e.timeStamp - t0;
       y0 = null;
       if (!moved) {
-        if (presa === h) setSheet({ peek: "half", half: "full", full: "peek" }[sheet.dataset.state]);
+        if (presa === h || presa.id === "grip") setSheet({ peek: "half", half: "full", full: "peek" }[sheet.dataset.state]);
         return;
       }
       const order = ["peek", "half", "full"];
