@@ -692,13 +692,16 @@
 
   function openPercorso(dest) {
     let piano = null, modo = "piedi", scelta = 0, origine = null, etichetta = "", errore = "";
+    let scelto = null;      // partenza scelta a mano: { lat, lon, nome }
+    let cerca = null;       // testo della ricerca partenza (null = ricerca chiusa)
     show({
       sel: [dest.lat, dest.lon],
       render(el) {
         const draw = () => {
           layerLinea.clearLayers();
           let h = `${backButton()}<h2>Come arrivo a ${esc(dest.nome)}</h2>
-            <p class="muted">${esc(etichetta)}${origine && !state.me ? ' · <button class="linkbtn" id="usegps">usa la mia posizione</button>' : ""}</p>
+            <p class="muted">Partenza: <b>${esc(etichetta)}</b> · <button class="linkbtn" id="chorig">${cerca === null ? "cambia" : "chiudi"}</button></p>
+            ${cerca !== null ? htmlPartenza() : ""}
             <div class="daybar"><button data-m="piedi" aria-pressed="${modo === "piedi"}">A piedi</button><button data-m="vap" aria-pressed="${modo === "vap"}">Vaporetto + piedi</button></div>`;
           if (errore) h += `<p class="empty">${esc(errore)}</p>`;
           else if (!piano) h += `<p class="empty">Calcolo il percorso…</p>`;
@@ -707,13 +710,55 @@
           el.innerHTML = h;
           el.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => { modo = b.dataset.m; scelta = 0; draw(); }));
           el.querySelectorAll("[data-o]").forEach((b) => b.addEventListener("click", () => { scelta = +b.dataset.o; draw(); }));
-          $("#usegps", el)?.addEventListener("click", async () => {
-            const me = await posizione();
-            if (!me) return toast("Posizione non disponibile: controlla i permessi del browser");
+          $("#chorig", el).addEventListener("click", () => { cerca = cerca === null ? "" : null; draw(); if (cerca !== null) $("#oq", el)?.focus(); });
+          const oq = $("#oq", el);
+          if (oq) {
+            oq.value = cerca;
+            oq.addEventListener("input", () => { cerca = oq.value; $("#ores", el).innerHTML = risultatiPartenza(); });
+          }
+          el.querySelector(".origini")?.addEventListener("click", async (e) => {
+            const b = e.target.closest("[data-orig]");
+            if (!b) return;
+            const [tipo, id] = b.dataset.orig.split(":");
+            if (tipo === "gps") {
+              const me = await posizione();
+              if (!me) return toast("Posizione non disponibile: controlla i permessi del browser");
+              scelto = null;
+            } else if (tipo === "mappa") {
+              toast("Tocca la mappa nel punto da cui parti");
+              setSheet("peek");
+              map.once("click", (ev) => { scelto = { lat: ev.latlng.lat, lon: ev.latlng.lng, nome: "punto sulla mappa" }; cerca = null; grow("half"); calcola(); });
+              return;
+            } else if (tipo === "f") {
+              const f = state.actv.fermate[+id];
+              scelto = { lat: f.lat, lon: f.lon, nome: "fermata " + f.nome };
+            } else {
+              const l = state.locali.find((x) => x.id === decodeURIComponent(id));
+              scelto = { lat: l.lat, lon: l.lon, nome: l.nome };
+            }
+            cerca = null;
             calcola();
           });
           if (piano) disegna();
         };
+        const risultatiPartenza = () => {
+          const q = norm(cerca.trim());
+          let righe = [];
+          if (q.length < 2) {
+            righe.push('<button class="row" data-orig="gps:"><span class="ico fermata" style="background:#2b7bd8;color:#fff">●</span><div><div class="t">La mia posizione</div></div><div class="m"></div></button>');
+            righe.push('<button class="row" data-orig="mappa:"><span class="ico bar">✛</span><div><div class="t">Scegli un punto sulla mappa</div></div><div class="m"></div></button>');
+            if (state.actv) righe.push(...vicine(dest, 4).map((i) => rowOrig("f", i, state.actv.fermate[i].nome, "Fermata vaporetto")));
+          } else {
+            if (state.actv) state.actv.fermate.forEach((f, i) => { if (norm(f.nome).includes(q)) righe.push(rowOrig("f", i, f.nome, "Fermata vaporetto")); });
+            state.locali.filter((l) => norm(l.nome).includes(q)).slice(0, 10)
+              .forEach((l) => righe.push(rowOrig("l", encodeURIComponent(l.id), l.nome, TIPI[l.tipo])));
+            if (!righe.length) righe.push(`<p class="empty">Niente per “${esc(cerca)}”.</p>`);
+          }
+          return righe.slice(0, 14).join("");
+        };
+        const rowOrig = (tipo, id, nome, sub) => `<button class="row" data-orig="${tipo}:${id}">${tipo === "f" ? `<span class="ico fermata">${ICON_BOAT}</span>` : tipoIcon("bacaro")}<div><div class="t">${esc(nome)}</div><div class="s">${esc(sub)}</div></div><div class="m"></div></button>`;
+        const htmlPartenza = () => `<div class="origini"><div class="searchbox inline"><input id="oq" type="search" placeholder="Parti da una fermata o da un locale" autocomplete="off"></div>
+          <div class="list" id="ores">${risultatiPartenza()}</div></div>`;
         const htmlPiedi = () => {
           const p = piano.piedi;
           if (!p) return `<p class="empty">Non trovo un percorso a piedi: forse partenza e arrivo sono su isole diverse. Prova col vaporetto.</p>`;
@@ -730,7 +775,7 @@
           const F = (g) => esc(state.actv.fermate[g].nome);
           return `<div class="list">${ops.map((x, i) => `<button class="row opt${i === scelta ? " on" : ""}" data-o="${i}">${lineaBadge(x.r)}<div><div class="t">${hhmm(x.parte)} da ${F(x.a)}</div><div class="s">arrivo ${hhmm(x.arrivo)} · ${x.walkA + x.walkB} min a piedi</div></div><div class="m"><b>${minuti(x.arrivo - nowMin())}</b></div></button>`).join("")}</div>
             <ol class="steps">
-              <li class="piedi"><span>Cammina fino al pontile ${F(o.a)}</span><span class="m">${o.walkA} min</span></li>
+              ${o.walkA > 1 ? `<li class="piedi"><span>Cammina fino al pontile ${F(o.a)}</span><span class="m">${o.walkA} min</span></li>` : ""}
               <li class="vap"><span>Prendi la linea ${esc(state.actv.linee[o.r].nome)} → ${esc(state.actv.capolinea[o.h])} alle <b>${hhmm(o.parte)}</b></span><span class="m">${o.tappe.length - 1} ferm.</span></li>
               <li class="vap"><span>Scendi a ${F(o.b)} alle ${hhmm(o.scende)}</span><span></span></li>
               <li class="piedi"><span>Cammina fino a ${esc(dest.nome)}</span><span class="m">${o.walkB} min</span></li>
@@ -769,9 +814,12 @@
         };
         const calcola = async () => {
           piano = null; errore = "";
-          const me = await posizione();
-          origine = me || center();
-          etichetta = me ? "Dalla tua posizione" : "Dal centro della mappa";
+          if (scelto) { origine = scelto; etichetta = scelto.nome; }
+          else {
+            const me = await posizione();
+            origine = me || center();
+            etichetta = me ? "la tua posizione" : "centro della mappa";
+          }
           draw();
           try {
             piano = await pianifica(origine, dest);
