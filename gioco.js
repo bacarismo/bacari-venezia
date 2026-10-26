@@ -329,8 +329,8 @@
 
   function spiegaErrore(e) {
     const m = (e && (e.message || e.error_description)) || "";
-    if (/could not find the function|schema cache/i.test(m)) return "Il database non è aggiornato: va lanciato lo script pin-solo-admin.sql in Supabase.";
-    if (/permission denied/i.test(m)) return `Il database non ha i permessi (${m.replace(/^.*permission denied for /i, "")}): va lanciato lo script permessi.sql in Supabase.`;
+    if (/could not find the function|schema cache/i.test(m)) return "Il database non è aggiornato: va lanciato di nuovo lo script schema.sql in Supabase.";
+    if (/permission denied/i.test(m)) return `Il database non ha i permessi (${m.replace(/^.*permission denied for /i, "")}): va lanciato di nuovo lo script schema.sql in Supabase.`;
     if (/failed to fetch|network/i.test(m)) return "Nessuna connessione con il server, riprova.";
     return m || "Qualcosa è andato storto, riprova";
   }
