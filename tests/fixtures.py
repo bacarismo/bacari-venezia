@@ -48,3 +48,26 @@ def gtfs_zip(today=None):
         for k, v in files.items():
             z.writestr(k, v)
     return buf.getvalue(), holiday
+
+
+def walk_osm():
+    """Griglia 4x4 di calli (circa 100 m di passo) più un pezzetto isolato."""
+    els = []
+    nid = lambda i, j: 1000 + i * 10 + j
+    for i in range(4):
+        for j in range(4):
+            els.append({"type": "node", "id": nid(i, j), "lat": 45.4370 + i * 0.0009, "lon": 12.3300 + j * 0.0013})
+    wid = 1
+    for i in range(4):  # calli est-ovest
+        els.append({"type": "way", "id": wid, "nodes": [nid(i, j) for j in range(4)],
+                    "tags": {"highway": "footway", "name": f"Calle {i}"}})
+        wid += 1
+    for j in range(4):  # fondamenta nord-sud
+        els.append({"type": "way", "id": wid, "nodes": [nid(i, j) for i in range(4)],
+                    "tags": {"highway": "pedestrian", "name": f"Fondamenta {j}"}})
+        wid += 1
+    els.append({"type": "way", "id": 99, "nodes": [nid(0, 0), nid(1, 1)],
+                "tags": {"highway": "footway", "foot": "no"}})
+    els += [{"type": "node", "id": 5, "lat": 45.5, "lon": 12.4}, {"type": "node", "id": 6, "lat": 45.5001, "lon": 12.4}]
+    els.append({"type": "way", "id": 98, "nodes": [5, 6], "tags": {"highway": "footway"}})
+    return {"elements": els}

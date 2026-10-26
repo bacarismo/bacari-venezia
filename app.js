@@ -375,13 +375,14 @@
           <div class="kind"><span class="tag ${l.tipo}">${TIPI[l.tipo]}</span>${l.preferito ? '<span class="tag star">★ Preferito</span>' : ""}${stato}</div>
           ${notes.join("")}
           <div class="actions">
-            <a class="btn primary" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lon}&travelmode=walking">Portami qui</a>
+            <button class="btn primary" id="go">Portami qui</button>
             <button class="btn" id="share">Condividi</button>
             ${isOsm ? `<a class="btn" target="_blank" rel="noopener" href="https://www.openstreetmap.org/${esc(l.id)}">Correggi su OSM</a>` : ""}
           </div>
           ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>` : `<p class="muted">Di questo locale OpenStreetMap non ha orari né contatti.</p>`}
           ${near.length ? `<div class="section-t">Vaporetto più vicino</div><div class="list">${near.map((i) => rowFermata(i, l)).join("")}</div>` : ""}`;
         $("#share", el).addEventListener("click", () => share(l.nome, "l=" + encodeURIComponent(l.id)));
+        $("#go", el).addEventListener("click", () => openPercorso(l));
       },
     });
   }
@@ -559,6 +560,174 @@
     });
   }
 
+  // ------------------------------------------------------------ indicazioni (a piedi e in vaporetto)
+  function setMe(p) {
+    state.me = { lat: p.coords.latitude, lon: p.coords.longitude };
+    $("#locate").classList.add("on");
+    if (!meMarker) meMarker = L.marker([state.me.lat, state.me.lon], { icon: L.divIcon({ className: "", html: '<span class="me-ic"></span>', iconSize: [16, 16] }), interactive: false, zIndexOffset: 1000 }).addTo(map);
+    else meMarker.setLatLng([state.me.lat, state.me.lon]);
+  }
+  function posizione() {
+    if (state.me) return Promise.resolve(state.me);
+    if (!navigator.geolocation) return Promise.resolve(null);
+    return new Promise((ok) => {
+      navigator.geolocation.getCurrentPosition((p) => { setMe(p); ok(state.me); }, () => ok(null),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
+    });
+  }
+
+  const minuti = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`);
+  let stopNodes = null;
+
+  async function pianifica(orig, dest) {
+    const P = Percorsi;
+    await P.load();
+    const o = P.nearest(orig.lat, orig.lon), d = P.nearest(dest.lat, dest.lon);
+    const daO = P.dijkstra(o.node), daD = P.dijkstra(d.node);
+    const walkMin = (res, node, extra) => (res.dist[node] + extra) / P.PASSO;
+    const piedi = P.path(daO, d.node);
+    const res = { o, d, daO, daD, piedi, piediMin: piedi ? Math.max(1, Math.round(walkMin(daO, d.node, o.dist + d.dist))) : null, opzioni: [] };
+    if (!state.actv) return res;
+    if (!stopNodes) stopNodes = state.actv.fermate.map((f) => P.nearest(f.lat, f.lon));
+    const verso = (res2, extra, max) => stopNodes
+      .map((sn, i) => ({ i, min: walkMin(res2, sn.node, extra + sn.dist) }))
+      .filter((x) => isFinite(x.min) && x.min <= max)
+      .sort((a, b) => a.min - b.min).slice(0, 5);
+    const salita = verso(daO, o.dist, 20);
+    const discesa = new Map(verso(daD, d.dist, 15).map((x) => [x.i, x.min]));
+    if (!salita.length || !discesa.size) return res;
+    const ora = nowMin();
+    const oggi = new Date();
+    const best = new Map();
+    for (const a of salita) {
+      const pronto = ora + Math.ceil(a.min);
+      let deps;
+      try { deps = await partenze(a.i, oggi); } catch (e) { continue; }
+      deps = deps.filter((x) => x.m >= pronto && x.m <= pronto + 90);
+      for (const dep of deps) {
+        let corse;
+        try { corse = await getJSON(`data/actv/corse/${dep.r}.json`); } catch (e) { continue; }
+        const ferm = corse[dep.t][2];
+        for (let k = dep.p + 1; k < ferm.length; k++) {
+          const b = ferm[k][0];
+          if (!discesa.has(b) || b === a.i) continue;
+          const arrivo = (dep.ieri ? ferm[k][1] - 1440 : ferm[k][1]) + Math.ceil(discesa.get(b));
+          const key = `${dep.r}|${dep.t}${dep.ieri ? "i" : ""}`; // una sola opzione per corsa
+          const walk = Math.ceil(a.min) + Math.ceil(discesa.get(b));
+          const cur = best.get(key);
+          if (!cur || cur.arrivo > arrivo || (cur.arrivo === arrivo && cur.walkA + cur.walkB > walk)) {
+            best.set(key, { r: dep.r, h: dep.h, a: a.i, b, parte: dep.m, scende: dep.ieri ? ferm[k][1] - 1440 : ferm[k][1],
+              arrivo, walkA: Math.ceil(a.min), walkB: Math.ceil(discesa.get(b)), tappe: ferm.slice(dep.p, k + 1).map(([g]) => g) });
+          }
+        }
+      }
+    }
+    const limite = res.piediMin != null ? ora + res.piediMin : Infinity;
+    res.opzioni = [...best.values()].filter((x) => x.arrivo < limite).sort((x, y) => x.arrivo - y.arrivo).slice(0, 4);
+    return res;
+  }
+
+  function disegnaPiedi(coords, dashed) {
+    L.polyline(coords, { color: css("--surface"), weight: 8, opacity: 0.9, interactive: false }).addTo(layerLinea);
+    L.polyline(coords, { color: "#2b7bd8", weight: 5, dashArray: dashed ? "2 9" : null, lineCap: "round", interactive: false }).addTo(layerLinea);
+  }
+
+  function openPercorso(dest) {
+    let piano = null, modo = "piedi", scelta = 0, origine = null, etichetta = "", errore = "";
+    show({
+      sel: [dest.lat, dest.lon],
+      render(el) {
+        const draw = () => {
+          layerLinea.clearLayers();
+          let h = `${backButton()}<h2>Come arrivo a ${esc(dest.nome)}</h2>
+            <p class="muted">${esc(etichetta)}${origine && !state.me ? ' · <button class="linkbtn" id="usegps">usa la mia posizione</button>' : ""}</p>
+            <div class="daybar"><button data-m="piedi" aria-pressed="${modo === "piedi"}">A piedi</button><button data-m="vap" aria-pressed="${modo === "vap"}">Vaporetto + piedi</button></div>`;
+          if (errore) h += `<p class="empty">${esc(errore)}</p>`;
+          else if (!piano) h += `<p class="empty">Calcolo il percorso…</p>`;
+          else if (modo === "piedi") h += htmlPiedi();
+          else h += htmlVap();
+          el.innerHTML = h;
+          el.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => { modo = b.dataset.m; scelta = 0; draw(); }));
+          el.querySelectorAll("[data-o]").forEach((b) => b.addEventListener("click", () => { scelta = +b.dataset.o; draw(); }));
+          $("#usegps", el)?.addEventListener("click", async () => {
+            const me = await posizione();
+            if (!me) return toast("Posizione non disponibile: controlla i permessi del browser");
+            calcola();
+          });
+          if (piano) disegna();
+        };
+        const htmlPiedi = () => {
+          const p = piano.piedi;
+          if (!p) return `<p class="empty">Non trovo un percorso a piedi: forse partenza e arrivo sono su isole diverse. Prova col vaporetto.</p>`;
+          const passi = Percorsi.steps(p);
+          return `<p class="summary"><b>${minuti(piano.piediMin)}</b> a piedi · ${fmtDist(p.len)}${p.ponti ? ` · ${p.ponti} ${p.ponti === 1 ? "ponte" : "ponti"}` : ""}</p>
+            <ol class="steps">${passi.map((s) => `<li class="${s.ponte ? "ponte" : s.verso}"><span>${esc(s.txt)}</span><span class="m">${fmtDist(s.len)}</span></li>`).join("")}
+            <li class="arrivo"><span>Sei arrivato a ${esc(dest.nome)}</span><span></span></li></ol>`;
+        };
+        const htmlVap = () => {
+          const ops = piano.opzioni;
+          if (!state.actv) return `<p class="empty">Orari dei vaporetti non disponibili.</p>`;
+          if (!ops.length) return `<p class="empty">${piano.piediMin != null && piano.piediMin <= 25 ? `Fai prima a piedi: ${minuti(piano.piediMin)}.` : "Nessun vaporetto diretto utile nei prossimi 90 minuti."}</p>`;
+          const o = ops[Math.min(scelta, ops.length - 1)];
+          const F = (g) => esc(state.actv.fermate[g].nome);
+          return `<div class="list">${ops.map((x, i) => `<button class="row opt${i === scelta ? " on" : ""}" data-o="${i}">${lineaBadge(x.r)}<div><div class="t">${hhmm(x.parte)} da ${F(x.a)}</div><div class="s">arrivo ${hhmm(x.arrivo)} · ${x.walkA + x.walkB} min a piedi</div></div><div class="m"><b>${minuti(x.arrivo - nowMin())}</b></div></button>`).join("")}</div>
+            <ol class="steps">
+              <li class="piedi"><span>Cammina fino al pontile ${F(o.a)}</span><span class="m">${o.walkA} min</span></li>
+              <li class="vap"><span>Prendi la linea ${esc(state.actv.linee[o.r].nome)} → ${esc(state.actv.capolinea[o.h])} alle <b>${hhmm(o.parte)}</b></span><span class="m">${o.tappe.length - 1} ferm.</span></li>
+              <li class="vap"><span>Scendi a ${F(o.b)} alle ${hhmm(o.scende)}</span><span></span></li>
+              <li class="piedi"><span>Cammina fino a ${esc(dest.nome)}</span><span class="m">${o.walkB} min</span></li>
+              <li class="arrivo"><span>Arrivo previsto alle ${hhmm(o.arrivo)}</span><span></span></li>
+            </ol>
+            ${piano.piediMin != null ? `<p class="muted">A piedi ci metteresti ${minuti(piano.piediMin)}.</p>` : ""}
+            <p class="foot">Solo corse dirette, orari programmati ACTV.</p>`;
+        };
+        const disegna = () => {
+          const pts = [];
+          if (modo === "piedi" && piano.piedi) {
+            disegnaPiedi(piano.piedi.coords);
+            pts.push(...piano.piedi.coords);
+          } else if (modo === "vap" && piano.opzioni.length) {
+            const o = piano.opzioni[Math.min(scelta, piano.opzioni.length - 1)];
+            const fa = stopNodes[o.a], fb = stopNodes[o.b];
+            const p1 = Percorsi.path(piano.daO, fa.node);
+            const p2 = Percorsi.path(piano.daD, fb.node);
+            if (p1) { disegnaPiedi(p1.coords, true); pts.push(...p1.coords); }
+            if (p2) { disegnaPiedi(p2.coords.slice().reverse(), true); pts.push(...p2.coords); }
+            const ride = o.tappe.map((g) => [state.actv.fermate[g].lat, state.actv.fermate[g].lon]);
+            const col = state.actv.linee[o.r].colore || css("--actv");
+            L.polyline(ride, { color: css("--ink"), weight: 8, opacity: 0.5, interactive: false }).addTo(layerLinea);
+            L.polyline(ride, { color: col, weight: 5, interactive: false }).addTo(layerLinea);
+            for (const g of [o.a, o.b]) {
+              const f = state.actv.fermate[g];
+              L.circleMarker([f.lat, f.lon], { radius: 7, color: css("--actv-ink"), weight: 2, fillColor: css("--actv"), fillOpacity: 1 }).bindTooltip(f.nome).addTo(layerLinea);
+            }
+            pts.push(...ride);
+          }
+          if (origine) L.circleMarker([origine.lat, origine.lon], { radius: 6, color: "#fff", weight: 3, fillColor: "#2b7bd8", fillOpacity: 1, interactive: false }).addTo(layerLinea);
+          if (pts.length) {
+            const b = L.latLngBounds(pts);
+            map.fitBounds(b, { paddingTopLeft: [30, 130], paddingBottomRight: [30, sheetHeight() + 20], maxZoom: 17 });
+          }
+        };
+        const calcola = async () => {
+          piano = null; errore = "";
+          const me = await posizione();
+          origine = me || center();
+          etichetta = me ? "Dalla tua posizione" : "Dal centro della mappa";
+          draw();
+          try {
+            piano = await pianifica(origine, dest);
+            if (!piano.piedi && piano.opzioni.length) modo = "vap";
+          }
+          catch (e) { errore = "Non riesco a caricare la mappa dei percorsi. Sei offline? Riprova quando hai campo."; }
+          draw();
+        };
+        grow("half");
+        calcola();
+      },
+    });
+  }
+
   // ------------------------------------------------------------ ricerca
   const q = $("#q");
   let searchTimer;
@@ -605,10 +774,7 @@
     if (watchId != null) return;
     watchId = navigator.geolocation.watchPosition((p) => {
       const first = !state.me;
-      state.me = { lat: p.coords.latitude, lon: p.coords.longitude };
-      $("#locate").classList.add("on");
-      if (!meMarker) meMarker = L.marker([state.me.lat, state.me.lon], { icon: L.divIcon({ className: "", html: '<span class="me-ic"></span>', iconSize: [16, 16] }), interactive: false, zIndexOffset: 1000 }).addTo(map);
-      else meMarker.setLatLng([state.me.lat, state.me.lon]);
+      setMe(p);
       if (first) {
         map.setView([state.me.lat, state.me.lon], 16);
         if (currentTab === "vicini" && state.stack.length === 1) showTab("vicini");
@@ -617,8 +783,8 @@
   });
 
   // ------------------------------------------------------------ avvio
-  function fromHash() {
-    const h = decodeURIComponent(location.hash.slice(1));
+  function fromHash(raw) {
+    const h = decodeURIComponent(raw.slice(1));
     if (h.startsWith("l=")) {
       const l = state.locali.find((x) => x.id === h.slice(2));
       if (l) { openLocale(l); return true; }
@@ -631,6 +797,7 @@
   }
 
   async function init() {
+    const hash = location.hash; // va letto subito: le viste riscrivono l'indirizzo
     body.innerHTML = `<p class="empty">Carico la mappa…</p>`;
     const [loc, actv] = await Promise.allSettled([getJSON("data/locali.json"), getJSON("data/actv/index.json")]);
     if (loc.status === "fulfilled") state.locali = loc.value.locali;
@@ -642,7 +809,7 @@
       body.innerHTML = `<p class="empty">Non trovo i dati dei locali e dei vaporetti. Se sei offline, riapri l'app quando hai campo.</p>`;
       return;
     }
-    if (fromHash()) state.stack.unshift(viewVicini());
+    fromHash(hash);
   }
   init();
 

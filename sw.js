@@ -3,7 +3,7 @@ const VERSION = "v1";
 const SHELL = `shell-${VERSION}`;
 const DATA = "data";
 const TILES = "tiles";
-const ASSETS = ["./", "index.html", "style.css", "app.js", "orari.js", "manifest.webmanifest",
+const ASSETS = ["./", "index.html", "style.css", "app.js", "orari.js", "routing.js", "manifest.webmanifest",
   "icons/icon-192.png", "data/locali.json", "data/actv/index.json",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css",

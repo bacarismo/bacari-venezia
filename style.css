@@ -216,3 +216,28 @@ h2 { font: 800 26px/1.1 var(--display); margin: 0 0 6px; text-wrap: balance; let
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--sheet-h, 150px) + 70px); z-index: 1100;
   background: var(--ink); color: var(--surface); padding: 8px 14px; border-radius: 10px; font-size: 14px; max-width: 90vw;
 }
+
+/* ---------- indicazioni */
+.summary { font-size: 17px; margin: 4px 0 10px; }
+.summary b { font: 800 22px var(--display); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--bar); text-decoration: underline; font-size: 14px; }
+.steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; }
+.steps li {
+  display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid var(--line);
+}
+.steps li:last-child { border-bottom: 0; }
+.steps li::before {
+  content: "↑"; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--bg); font-weight: 800; color: var(--ink);
+}
+.steps li.sinistra::before { content: "↰"; }
+.steps li.destra::before { content: "↱"; }
+.steps li.ponte::before { content: "⌒"; background: var(--ombra-soft); color: var(--ombra); }
+.steps li.piedi::before { content: "•••"; font-size: 9px; color: #2b7bd8; }
+.steps li.vap::before { content: ""; background: var(--actv); box-shadow: inset 0 0 0 2px var(--actv-ink); border-radius: 6px; }
+.steps li.arrivo::before { content: "★"; background: var(--ombra); color: #fff; }
+.steps .m { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row.opt.on { background: var(--bg); border-radius: 10px; }
+.row.opt { padding-inline: 6px; }
+.row.opt .m b { font-size: 16px; }

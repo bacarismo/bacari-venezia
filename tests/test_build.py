@@ -7,7 +7,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 sys.path.insert(0, os.path.dirname(__file__))
 import build_data  # noqa: E402
-from fixtures import OSM, gtfs_zip  # noqa: E402
+from fixtures import OSM, gtfs_zip, walk_osm  # noqa: E402
 
 
 class TestLocali(unittest.TestCase):
@@ -56,6 +56,17 @@ class TestKml(unittest.TestCase):
         self.assertEqual(by["Cantina Do Mori"]["nota"], "polpette\ne ombra")
         self.assertTrue(by["Bacaro segreto"]["preferito"])
         self.assertEqual(by["Bacaro segreto"]["id"], "manuale/bacaro-segreto")
+
+
+class TestGrafo(unittest.TestCase):
+    def test_grafo(self):
+        g, comps = build_data.build_graph(walk_osm(), min_component=5)
+        self.assertEqual(len(g["n"]) // 2, 16)         # tutti incroci
+        self.assertEqual(len(g["e"]) // 5, 24)         # 4*3 + 4*3 tratti, niente foot=no
+        self.assertEqual(comps, [16])                   # il pezzetto isolato è scartato
+        self.assertIn("Calle 0", g["w"])
+        lens = g["e"][2::5]
+        self.assertTrue(all(95 < l < 115 for l in lens), lens)
 
 
 class TestGtfs(unittest.TestCase):

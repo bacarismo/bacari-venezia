@@ -60,8 +60,8 @@ def http_get(url, data=None, timeout=180):
 
 # ---------------------------------------------------------------- OSM
 
-def fetch_osm():
-    body = urllib.parse.urlencode({"data": OVERPASS_QUERY}).encode()
+def fetch_osm(query=OVERPASS_QUERY):
+    body = urllib.parse.urlencode({"data": query}).encode()
     last = None
     for attempt in range(2):
         if attempt:
@@ -451,6 +451,108 @@ def _centroid(pts):
     return (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))
 
 
+
+# ---------------------------------------------------------------- rete pedonale
+
+WALK_QUERY = """
+[out:json][timeout:180];
+way["highway"~"^(footway|pedestrian|path|steps|living_street|residential|service|unclassified|tertiary|secondary|primary|track|cycleway|corridor|platform)$"]({s},{w},{n},{e});
+out body;
+>;
+out skel qt;
+""".format(s=BBOX[0], w=BBOX[1], n=BBOX[2], e=BBOX[3])
+
+
+def _hav(a, b):
+    R = 6371000.0
+    la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    x = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(x))
+
+
+def _walkable(tags):
+    foot = tags.get("foot", "")
+    if foot in ("no", "private"):
+        return False
+    if tags.get("access") in ("no", "private") and foot not in ("yes", "designated", "permissive"):
+        return False
+    return True
+
+
+def build_graph(osm, min_component=30):
+    """Grafo pedonale compatto: incroci come nodi, i tratti in mezzo come geometria degli archi."""
+    coords = {}
+    ways = []
+    for el in osm.get("elements", []):
+        if el["type"] == "node":
+            coords[el["id"]] = (el["lat"], el["lon"])
+        elif el["type"] == "way" and _walkable(el.get("tags", {})):
+            ways.append(el)
+    use = defaultdict(int)
+    for w in ways:
+        refs = [r for r in w["nodes"] if r in coords]
+        w["refs"] = refs
+        for i, r in enumerate(refs):
+            use[r] += 2 if i in (0, len(refs) - 1) else 1
+    junction = {r for r, c in use.items() if c > 1}
+
+    names, name_idx = [""], {"": 0}
+    edges = []  # (a_osm, b_osm, [intermedi], lunghezza, nome, flag)
+    for w in ways:
+        refs = w["refs"]
+        if len(refs) < 2:
+            continue
+        tags = w.get("tags", {})
+        name = tags.get("name", "")
+        if name not in name_idx:
+            name_idx[name] = len(names)
+            names.append(name)
+        flag = (1 if tags.get("bridge") in ("yes", "viaduct") else 0) | (2 if tags.get("highway") == "steps" else 0)
+        start, mid, length = refs[0], [], 0.0
+        for prev, cur in zip(refs, refs[1:]):
+            length += _hav(coords[prev], coords[cur])
+            if cur in junction or cur == refs[-1]:
+                if start != cur:
+                    edges.append((start, cur, mid, length, name_idx[name], flag))
+                start, mid, length = cur, [], 0.0
+            else:
+                mid.append(cur)
+
+    # componenti connesse: si scartano i pezzetti isolati
+    parent = {}
+
+    def find(x):
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for a, b, *_ in edges:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+    size = defaultdict(int)
+    for x in list(parent):
+        size[find(x)] += 1
+    keep = {x for x in parent if size[find(x)] >= min_component}
+
+    idx = {}
+    n_out, e_out, g_out = [], [], []
+    for a, b, mid, length, nm, flag in edges:
+        if a not in keep:
+            continue
+        for x in (a, b):
+            if x not in idx:
+                idx[x] = len(idx)
+                n_out += [round(coords[x][0] * 1e5), round(coords[x][1] * 1e5)]
+        e_out += [idx[a], idx[b], round(length), nm, flag]
+        g = []
+        for m in mid:
+            g += [round(coords[m][0] * 1e5), round(coords[m][1] * 1e5)]
+        g_out.append(g)
+    comps = sorted({size[find(x)] for x in keep}, reverse=True)
+    return {"n": n_out, "e": e_out, "g": g_out, "w": names}, comps
+
+
 # ---------------------------------------------------------------- main
 
 def write_json(path, obj):
@@ -466,6 +568,8 @@ def main():
     ap.add_argument("--out", default=DATA)
     ap.add_argument("--skip-osm", action="store_true")
     ap.add_argument("--skip-gtfs", action="store_true")
+    ap.add_argument("--skip-grafo", action="store_true")
+    ap.add_argument("--walk-file")
     args = ap.parse_args()
 
     if not args.skip_osm:
@@ -497,6 +601,27 @@ def main():
         for l in locali:
             counts[l["tipo"]] += 1
         print(f"Locali: {len(locali)} {dict(counts)}", file=sys.stderr)
+
+    if not args.skip_grafo:
+        path = os.path.join(args.out, "grafo.json")
+        try:
+            if args.walk_file:
+                with open(args.walk_file, encoding="utf-8") as f:
+                    walk = json.load(f)
+            else:
+                walk = fetch_osm(WALK_QUERY)
+            graph, comps = build_graph(walk)
+            write_json(path, graph)
+            print(f"Grafo pedonale: {len(graph['n']) // 2} nodi, {len(graph['e']) // 5} archi, "
+                  f"isole principali {comps[:6]}, {os.path.getsize(path) // 1024} KB", file=sys.stderr)
+        except RuntimeError as ex:
+            prev = os.environ.get("SITO_PUBBLICATO")
+            if not prev:
+                raise
+            print(f"{ex}. Riuso il grafo da {prev}", file=sys.stderr)
+            os.makedirs(args.out, exist_ok=True)
+            with open(path, "wb") as f:
+                f.write(http_get(prev.rstrip("/") + "/data/grafo.json"))
 
     if not args.skip_gtfs:
         if args.gtfs_file:
