@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=__V__">
 </head>
 <body>
 <div id="map" aria-label="Mappa di Venezia"></div>
@@ -39,6 +39,7 @@
     <input id="q" type="search" placeholder="Cerca un bacaro o una fermata" autocomplete="off" enterkeyhint="search">
   </div>
   <div class="chips" role="group" aria-label="Cosa mostrare">
+    <button class="chip chip-casa" id="chipcasa" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5h4v5"/></svg>Casa</button>
     <button class="chip" data-f="bacaro" aria-pressed="true"><i class="dot dot-bacaro"></i>Bacari</button>
     <button class="chip" data-f="bar" aria-pressed="true"><i class="dot dot-bar"></i>Bar</button>
     <button class="chip" data-f="caffe" aria-pressed="false"><i class="dot dot-caffe"></i>Caffè</button>
@@ -52,14 +53,12 @@
 </button>
 
 <section id="sheet" class="sheet" data-state="peek" aria-live="polite">
-  <div class="grip" id="grip">
-    <button class="handle" id="handle" aria-label="Espandi o riduci"><span></span></button>
-    <button class="casa-btn" id="casa" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5h4v5"/></svg>Portami a casa</button>
-  </div>
+  <button class="handle" id="handle" aria-label="Espandi o riduci"><span></span></button>
   <nav class="tabs" id="tabs">
     <button data-tab="vicini" aria-selected="true">Qui intorno</button>
     <button data-tab="linee" aria-selected="false">Linee</button>
     <button data-tab="preferiti" aria-selected="false">Preferiti</button>
+    <button class="casa-btn" id="casa" hidden><span class="lungo">Portami a casa</span><span class="corto">A casa</span></button>
   </nav>
   <div class="sheet-body" id="body"></div>
 </section>
@@ -67,10 +66,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
 <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
-<script src="config.js"></script>
-<script src="cripto.js"></script>
-<script src="orari.js"></script>
-<script src="routing.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=__V__"></script>
+<script src="cripto.js?v=__V__"></script>
+<script src="orari.js?v=__V__"></script>
+<script src="routing.js?v=__V__"></script>
+<script src="app.js?v=__V__"></script>
 </body>
 </html>

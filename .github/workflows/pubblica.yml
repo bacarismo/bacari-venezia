@@ -44,7 +44,9 @@ jobs:
         run: |
           mkdir _site
           cp -r index.html style.css app.js orari.js routing.js config.js cripto.js cifra.html sw.js manifest.webmanifest icons data _site/
-          sed -i "s/const VERSION = \"v1\"/const VERSION = \"$(date +%Y%m%d%H%M)\"/" _site/sw.js
+          V=$(date +%Y%m%d%H%M)
+          sed -i "s/const VERSION = \"v1\"/const VERSION = \"$V\"/" _site/sw.js
+          sed -i "s/__V__/$V/g" _site/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

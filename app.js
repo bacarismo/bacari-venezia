@@ -155,7 +155,11 @@
       .addTo(map);
     const btn = $("#casa");
     btn.hidden = false;
-    btn.addEventListener("click", () => { q.value = ""; openPercorso(casa); });
+    btn.addEventListener("click", (e) => { e.stopPropagation(); $("#q").value = ""; openPercorso(casa); });
+    // nella barra in alto: non è un filtro, porta la mappa su casa
+    const chip = $("#chipcasa");
+    chip.hidden = false;
+    chip.addEventListener("click", () => focus(casa.lat, casa.lon));
   }
 
   function drawFermate() {
@@ -188,7 +192,7 @@
   const sheet = $("#sheet");
   const tabsEl = () => $("#tabs");
   const body = $("#body");
-  const SIZES = { peek: () => 178, half: () => Math.round(innerHeight * 0.5), full: () => innerHeight - 120 };
+  const SIZES = { peek: () => 160, half: () => Math.round(innerHeight * 0.5), full: () => innerHeight - 120 };
   function sheetHeight() { return SIZES[sheet.dataset.state](); }
   function setSheet(s) {
     sheet.dataset.state = s;
@@ -203,7 +207,7 @@
     const h = $("#handle");
     let y0 = null, hh0 = 0, t0 = 0, moved = false, presa = null;
     sheet.addEventListener("pointerdown", (e) => {
-      presa = !e.target.closest("#casa") && e.target.closest("#handle, #grip, #tabs");
+      presa = !e.target.closest("#casa") && e.target.closest("#handle, #tabs");
       if (!presa || e.button > 0) return;
       y0 = e.clientY; hh0 = sheet.offsetHeight; t0 = e.timeStamp; moved = false;
     });
@@ -221,7 +225,7 @@
       const dy = y0 - e.clientY, dt = e.timeStamp - t0;
       y0 = null;
       if (!moved) {
-        if (presa === h || presa.id === "grip") setSheet({ peek: "half", half: "full", full: "peek" }[sheet.dataset.state]);
+        if (presa === h) setSheet({ peek: "half", half: "full", full: "peek" }[sheet.dataset.state]);
         return;
       }
       const order = ["peek", "half", "full"];
@@ -1057,7 +1061,7 @@
   }
 
   // ------------------------------------------------------------ filtri e posizione
-  const chips = document.querySelectorAll(".chip");
+  const chips = document.querySelectorAll(".chip[data-f]");
   chips.forEach((c) => {
     c.setAttribute("aria-pressed", String(!!state.filtri[c.dataset.f]));
     c.addEventListener("click", () => {
