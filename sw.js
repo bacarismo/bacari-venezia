@@ -18,7 +18,8 @@ self.addEventListener("activate", (e) => {
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
   try {
-    const res = await fetch(req);
+    // no-cache: chiede sempre al server se il file è cambiato (GitHub Pages altrimenti tiene 10 minuti)
+    const res = await fetch(req, new URL(req.url).origin === location.origin ? { cache: "no-cache" } : {});
     if (res.ok) cache.put(req, res.clone());
     return res;
   } catch (e) {
