@@ -399,6 +399,8 @@
     if (gCache.has(l.id)) return gCache.get(l.id);
     const p = fetch("https://places.googleapis.com/v1/places:searchText", {
       method: "POST",
+      // manda l'URL completo come referrer: la restrizione della chiave su Google lo confronta
+      referrerPolicy: "no-referrer-when-downgrade",
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": googleKey(),
@@ -444,7 +446,7 @@
     const ph = g.photos && g.photos[0];
     if (ph) {
       const autore = (ph.authorAttributions || [])[0];
-      box.innerHTML = `<img alt="Foto di ${esc(l.nome)}" loading="lazy" src="https://places.googleapis.com/v1/${esc(ph.name)}/media?maxWidthPx=800&key=${encodeURIComponent(googleKey())}">
+      box.innerHTML = `<img alt="Foto di ${esc(l.nome)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://places.googleapis.com/v1/${esc(ph.name)}/media?maxWidthPx=800&key=${encodeURIComponent(googleKey())}">
         <p class="credit">Foto${autore ? ` di <a href="${esc(autore.uri)}" target="_blank" rel="noopener">${esc(autore.displayName)}</a>` : ""} · Google Maps</p>`;
       box.querySelector("img").addEventListener("error", () => {
         box.innerHTML = '<p class="gstato err">Google non ha restituito la foto (controlla che la chiave possa usare Places API New).</p>';
