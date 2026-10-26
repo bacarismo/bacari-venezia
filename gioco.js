@@ -340,8 +340,8 @@
     const src = await decodifica(file);
     const s = Math.min(src.width, src.height);
     const c = document.createElement("canvas");
-    c.width = c.height = 256;
-    c.getContext("2d").drawImage(src, (src.width - s) / 2, (src.height - s) / 2, s, s, 0, 0, 256, 256);
+    c.width = c.height = 400;
+    c.getContext("2d").drawImage(src, (src.width - s) / 2, (src.height - s) / 2, s, s, 0, 0, 400, 400);
     const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
     if (!blob) throw new Error("Non riesco a leggere questa foto");
     return blob;
@@ -538,17 +538,18 @@
   }
   async function preparaFoto(file) {
     if (!/^image\//.test(file.type) && !/\.(jpe?g|png|heic|heif|webp)$/i.test(file.name)) throw new Error("Solo foto, niente video");
-    const src = await decodifica(file);
+    let src;
+    try { src = await decodifica(file); } catch (e) { throw new Error("Il telefono non riesce a leggere questa foto (" + (file.type || file.name) + ")"); }
     const grande = await riduci(src, 1600, 300 * 1024);
     const piccola = await riduci(src, 480, 45 * 1024);
-    return { grande, piccola, anteprima: URL.createObjectURL(piccola.blob) };
+    return { grande, piccola, anteprima: URL.createObjectURL(grande.blob) };
   }
   async function caricaFoto(f, didascalia) {
     const base = `${G.io.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const st = G.sb.storage.from("foto");
     const opt = { contentType: "image/jpeg", cacheControl: "31536000", upsert: false };
     const [a, b] = await Promise.all([st.upload(base + ".jpg", f.grande.blob, opt), st.upload(base + "_p.jpg", f.piccola.blob, opt)]);
-    if (a.error || b.error) throw a.error || b.error;
+    if (a.error || b.error) throw new Error("Caricamento della foto non riuscito: " + (a.error || b.error).message);
     const { data, error } = await G.sb.from("foto").insert({
       profilo_id: G.io.id, path: base + ".jpg", thumb: base + "_p.jpg", larghezza: f.grande.w, altezza: f.grande.h, didascalia: (didascalia || "").slice(0, 140),
     }).select("id").single();
