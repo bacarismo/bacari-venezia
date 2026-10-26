@@ -39,6 +39,42 @@ class TestLocali(unittest.TestCase):
         self.assertNotIn("Senza coordinate", by)
 
 
+class TestCurati(unittest.TestCase):
+    def test_curati(self):
+        locali = build_data.build_locali(OSM)
+        ids = {l["nome"]: l["id"] for l in locali}
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({
+                "tipi": {ids["Bar Esempio"]: "bacaro"},
+                "escludi": [ids["Caffè Esempio"]],
+                "nuovi": [
+                    {"nome": "Bacaro Nuovo", "tipo": "bacaro", "indirizzo": "Calle X 1", "sestiere": "San Polo",
+                     "circa": [45.4380, 12.3350]},
+                    {"nome": "Vineria Esempio Bis", "tipo": "bacaro", "circa": [45.4352, 12.33]},
+                    {"nome": "Trovato Per Nome", "tipo": "bar", "circa": [45.4300, 12.3300]},
+                    {"nome": "Senza niente", "tipo": "bacaro"},
+                ]}, f)
+        ristoranti = [{"nome": "Ristorante Trovato per nome", "lat": 45.4310, "lon": 12.3305}]
+        out = build_data.apply_curati(locali, f.name, ristoranti, geocoder=None)
+        os.unlink(f.name)
+        by = {l["nome"]: l for l in out}
+        self.assertEqual(by["Bar Esempio"]["tipo"], "bacaro")
+        self.assertNotIn("Caffè Esempio", by)
+        self.assertEqual(by["Bacaro Nuovo"]["id"], "curato/bacaro-nuovo")
+        self.assertEqual(by["Bacaro Nuovo"]["indirizzo"], "Calle X 1, San Polo")
+        self.assertEqual((by["Bacaro Nuovo"]["lat"], by["Bacaro Nuovo"]["lon"]), (45.438, 12.335))
+        self.assertEqual(by["Trovato Per Nome"]["lat"], 45.431)  # posizione presa da OSM
+        self.assertNotIn("Senza niente", by)
+        self.assertNotIn("Vineria Esempio Bis", by)  # già su OSM con un nome simile
+        # rifarlo sul risultato non crea doppioni
+        self.assertEqual(sum(l["nome"] == "Bacaro Nuovo" for l in out), 1)
+
+    def test_stesso_nome(self):
+        self.assertTrue(build_data.stesso_nome("Bacaro Al Momoleto De Le Voie", "Al Momoleto"))
+        self.assertFalse(build_data.stesso_nome("Bacaro", "Bacaro Jazz"))
+        self.assertFalse(build_data.stesso_nome("El Sbarlefo San Pantalon", "Sbarlefo Bis"))
+
+
 class TestKml(unittest.TestCase):
     def test_kml(self):
         kml = """<?xml version="1.0" encoding="UTF-8"?>

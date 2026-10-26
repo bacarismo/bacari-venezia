@@ -1,0 +1,706 @@
+{
+ "_come_si_usa": "Lista curata da Paolo (ottobre 2026), unita ai dati OSM dal build. 'tipi' cambia la categoria di un locale OSM (bacaro, osteria, bar, caffe). 'escludi' toglie locali OSM doppioni o sbagliati. 'nuovi' aggiunge locali che su OSM mancano: il build cerca la posizione esatta su OSM per nome e poi per indirizzo; 'circa' sono coordinate stimate, usate solo se la ricerca non trova niente.",
+ "tipi": {
+  "node/10092210085": "bacaro",
+  "node/10847102572": "bacaro",
+  "node/10922238124": "bacaro",
+  "node/11063897335": "bacaro",
+  "node/11136157297": "osteria",
+  "node/11181609129": "bacaro",
+  "node/11813817557": "bacaro",
+  "node/11942868069": "bacaro",
+  "node/1202810066": "bacaro",
+  "node/1207522412": "bacaro",
+  "node/12118240137": "bacaro",
+  "node/12216827801": "bacaro",
+  "node/13197663201": "bacaro",
+  "node/13850403227": "bacaro",
+  "node/13897541210": "bacaro",
+  "node/1522293722": "bacaro",
+  "node/1879269049": "bacaro",
+  "node/1987313539": "bacaro",
+  "node/2165495953": "bar",
+  "node/2249943781": "bacaro",
+  "node/2250066811": "bacaro",
+  "node/2262139778": "bacaro",
+  "node/2408157611": "bacaro",
+  "node/2486203149": "bacaro",
+  "node/2785171261": "bacaro",
+  "node/2997497336": "bacaro",
+  "node/3002759160": "bacaro",
+  "node/3016776034": "bacaro",
+  "node/3156481389": "bacaro",
+  "node/3396925558": "bacaro",
+  "node/3503833467": "bacaro",
+  "node/3523457966": "bacaro",
+  "node/3623864662": "bacaro",
+  "node/3781268646": "bacaro",
+  "node/3884049419": "bacaro",
+  "node/4153432489": "bacaro",
+  "node/4159457191": "bacaro",
+  "node/4195426490": "bacaro",
+  "node/4195435790": "bacaro",
+  "node/4198442539": "bacaro",
+  "node/4216768831": "bacaro",
+  "node/4216768836": "bacaro",
+  "node/4216769526": "bacaro",
+  "node/4232613461": "bacaro",
+  "node/4234614142": "bar",
+  "node/4234614741": "bacaro",
+  "node/4238219513": "bacaro",
+  "node/4320229195": "bacaro",
+  "node/4370761851": "bacaro",
+  "node/4431132539": "bacaro",
+  "node/4455518537": "bacaro",
+  "node/4469986422": "bacaro",
+  "node/4479969285": "bacaro",
+  "node/4492301495": "bacaro",
+  "node/4492301496": "bacaro",
+  "node/4492301497": "bacaro",
+  "node/4492301498": "bacaro",
+  "node/4492301499": "bacaro",
+  "node/4492344893": "bacaro",
+  "node/4492364089": "bacaro",
+  "node/4513645691": "bacaro",
+  "node/4513761193": "bar",
+  "node/4659139591": "bacaro",
+  "node/4698914992": "bacaro",
+  "node/4698937794": "bacaro",
+  "node/4798329531": "bar",
+  "node/4820401221": "bacaro",
+  "node/4839931722": "bacaro",
+  "node/4840996726": "bacaro",
+  "node/4853999646": "bacaro",
+  "node/4912579370": "bacaro",
+  "node/4998734623": "bacaro",
+  "node/5048106776": "bacaro",
+  "node/5109258122": "bacaro",
+  "node/5217494723": "bacaro",
+  "node/5251963730": "bacaro",
+  "node/5308475923": "caffe",
+  "node/5310473621": "bacaro",
+  "node/5424400025": "bacaro",
+  "node/5451326623": "bacaro",
+  "node/5525037212": "bacaro",
+  "node/5554511821": "bacaro",
+  "node/5649398722": "bacaro",
+  "node/5833628286": "bacaro",
+  "node/5833628388": "bacaro",
+  "node/5833634585": "bacaro",
+  "node/5842486919": "bar",
+  "node/5849630829": "bacaro",
+  "node/5864318045": "bacaro",
+  "node/5937822885": "bacaro",
+  "node/6187899330": "bacaro",
+  "node/6281435102": "bacaro",
+  "node/671952379": "bacaro",
+  "node/6811652390": "bacaro",
+  "node/7019023781": "bacaro",
+  "node/7133750988": "bar",
+  "node/7222909238": "bacaro",
+  "node/7660188932": "bacaro",
+  "node/7731826786": "bacaro",
+  "node/7770742485": "bar",
+  "node/8049981134": "bacaro",
+  "node/8743708717": "bacaro",
+  "node/9120679284": "bacaro",
+  "node/9200624603": "bacaro"
+ },
+ "escludi": [
+  "node/13857722061",
+  "node/1671788276",
+  "node/1698431331",
+  "node/9870720098"
+ ],
+ "nuovi": [
+  {
+   "nome": "Ca' d'Oro alla Vedova",
+   "tipo": "bacaro",
+   "indirizzo": "Ramo Ca' d'Oro 3912",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4404,
+    12.3343
+   ]
+  },
+  {
+   "nome": "Agli Ostinati",
+   "tipo": "bacaro",
+   "indirizzo": "Ponte dei Giocattoli 5600",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4397,
+    12.3418
+   ]
+  },
+  {
+   "nome": "Osteria Ai Osti",
+   "tipo": "bacaro",
+   "indirizzo": "Corte dei Pali 3489",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4412,
+    12.333
+   ]
+  },
+  {
+   "nome": "Bar Tiziano",
+   "tipo": "bacaro",
+   "indirizzo": "Salizada S. Giovanni Grisostomo 5747",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4391,
+    12.3375
+   ]
+  },
+  {
+   "nome": "Naranzaria",
+   "tipo": "bacaro",
+   "indirizzo": "San Polo 130",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4383,
+    12.3354
+   ]
+  },
+  {
+   "nome": "Osteria al Ponte \"La Patatina\"",
+   "tipo": "bacaro",
+   "indirizzo": "San Polo 2741",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4368,
+    12.3291
+   ]
+  },
+  {
+   "nome": "Basegò",
+   "tipo": "bacaro",
+   "indirizzo": "Via Garibaldi 1762",
+   "sestiere": "Castello",
+   "circa": [
+    45.4322,
+    12.3523
+   ]
+  },
+  {
+   "nome": "Bacarando",
+   "tipo": "bacaro",
+   "alias": [
+    "Bacarando in Corte dell'Orso"
+   ],
+   "indirizzo": "Corte dell'Orso 5495",
+   "sestiere": "San Marco",
+   "circa": [
+    45.4379,
+    12.3372
+   ]
+  },
+  {
+   "nome": "Rosticceria Gislon",
+   "tipo": "bacaro",
+   "indirizzo": "Calle de la Bissa 5424",
+   "sestiere": "San Marco",
+   "circa": [
+    45.4376,
+    12.3369
+   ]
+  },
+  {
+   "nome": "Aciugheta",
+   "tipo": "bacaro",
+   "indirizzo": "Campo SS. Filippo e Giacomo 4357",
+   "sestiere": "Castello",
+   "circa": [
+    45.4347,
+    12.3416
+   ]
+  },
+  {
+   "nome": "Al Mascaron",
+   "tipo": "bacaro",
+   "indirizzo": "Calle Lunga S. Maria Formosa 5225",
+   "sestiere": "Castello",
+   "circa": [
+    45.4381,
+    12.3424
+   ]
+  },
+  {
+   "nome": "Bacarotto",
+   "tipo": "bacaro",
+   "indirizzo": "Calle S. Rocco 3961",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4369,
+    12.3242
+   ]
+  },
+  {
+   "nome": "Enoteca Cibo e Vino",
+   "tipo": "bacaro",
+   "indirizzo": "Campo S. Canzian 6051",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4393,
+    12.3385
+   ]
+  },
+  {
+   "nome": "Bacaro 101",
+   "tipo": "bacaro",
+   "indirizzo": "Campo S. Giacomo di Rialto 101",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4385,
+    12.3355
+   ]
+  },
+  {
+   "nome": "Bacaro aea Pescaria",
+   "tipo": "bacaro",
+   "indirizzo": "San Polo 317",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4393,
+    12.3343
+   ]
+  },
+  {
+   "nome": "Bacaro all'Imbuto",
+   "tipo": "bacaro",
+   "alias": [
+    "Cicchetteria Al Pesce Rosso"
+   ],
+   "indirizzo": "Calle Scaleta 5850A, Corte del Milion",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4392,
+    12.3365
+   ]
+  },
+  {
+   "nome": "Bacaro",
+   "tipo": "bacaro",
+   "indirizzo": "Campo dei Gesuiti",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4439,
+    12.3393
+   ]
+  },
+  {
+   "nome": "Bacaro Per Caso",
+   "tipo": "bacaro",
+   "indirizzo": "Giudecca 460",
+   "sestiere": "Giudecca",
+   "circa": [
+    45.4265,
+    12.3295
+   ]
+  },
+  {
+   "nome": "Da Oxy Bacaro Familiare",
+   "tipo": "bacaro",
+   "indirizzo": "Cannaregio 2587a",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4448,
+    12.332
+   ]
+  },
+  {
+   "nome": "Bacaro Al Momoleto De Le Voie",
+   "tipo": "bacaro",
+   "indirizzo": "Salizada S. Canzian 5940",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4392,
+    12.3383
+   ]
+  },
+  {
+   "nome": "El Fradeo Quebrado",
+   "tipo": "bacaro",
+   "indirizzo": "Calle del Tentor 1464",
+   "sestiere": "Santa Croce",
+   "circa": [
+    45.4398,
+    12.3289
+   ]
+  },
+  {
+   "nome": "Bacaro Bar Tabalotto",
+   "tipo": "bacaro",
+   "indirizzo": "Cannaregio 5693",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4392,
+    12.3376
+   ]
+  },
+  {
+   "nome": "Picenin",
+   "tipo": "bacaro",
+   "indirizzo": "Campo drio la Chiesa 4467",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4403,
+    12.3365
+   ]
+  },
+  {
+   "nome": "Magna Bevi Tasi",
+   "tipo": "bacaro",
+   "indirizzo": "Campo SS. Filippo e Giacomo 4520",
+   "sestiere": "Castello",
+   "circa": [
+    45.4347,
+    12.3412
+   ]
+  },
+  {
+   "nome": "Bakarò",
+   "tipo": "bacaro",
+   "indirizzo": "Dorsoduro 3662",
+   "sestiere": "Dorsoduro",
+   "circa": [
+    45.435,
+    12.324
+   ]
+  },
+  {
+   "nome": "Cip & Ciop",
+   "tipo": "bacaro",
+   "indirizzo": "Lista Vecchia dei Bari 1162",
+   "sestiere": "Santa Croce",
+   "circa": [
+    45.4405,
+    12.3245
+   ]
+  },
+  {
+   "nome": "Osteria Vineria Gastronomica Sepa",
+   "tipo": "bacaro",
+   "indirizzo": "Calle de la Bissa 5482",
+   "sestiere": "San Marco",
+   "circa": [
+    45.4377,
+    12.3372
+   ]
+  },
+  {
+   "nome": "Bacaro dai Fioi",
+   "tipo": "bacaro",
+   "indirizzo": "Calle Lunga S. Barnaba 2715",
+   "sestiere": "Dorsoduro",
+   "circa": [
+    45.4327,
+    12.3226
+   ]
+  },
+  {
+   "nome": "El Sbarlefo San Pantalon",
+   "tipo": "bacaro",
+   "indirizzo": "Calle S. Pantalon 3757",
+   "sestiere": "Dorsoduro",
+   "circa": [
+    45.4352,
+    12.3234
+   ]
+  },
+  {
+   "nome": "Cantina Arnaldi",
+   "tipo": "bacaro",
+   "indirizzo": "Salizada San Pantalon 35",
+   "sestiere": "Santa Croce",
+   "circa": [
+    45.4362,
+    12.3232
+   ]
+  },
+  {
+   "nome": "Bacaro Le Tre Rose",
+   "tipo": "bacaro",
+   "indirizzo": "Calle del Perdon 1272",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4372,
+    12.3323
+   ]
+  },
+  {
+   "nome": "Oficina Ormesini",
+   "tipo": "bacaro",
+   "indirizzo": "Cannaregio 2689",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4455,
+    12.3292
+   ]
+  },
+  {
+   "nome": "La Bottiglia",
+   "tipo": "bacaro",
+   "indirizzo": "Campo S. Stin 2537",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4372,
+    12.3271
+   ]
+  },
+  {
+   "nome": "Ai Do Leoni",
+   "tipo": "bacaro",
+   "indirizzo": "Piazza San Marco 355",
+   "sestiere": "San Marco",
+   "circa": [
+    45.4347,
+    12.3401
+   ]
+  },
+  {
+   "nome": "Stappo - Enoteca con cucina",
+   "tipo": "bacaro",
+   "indirizzo": "Calle Longa 2166"
+  },
+  {
+   "nome": "Taverna al Remer",
+   "tipo": "bacaro",
+   "indirizzo": "Cannaregio 5701",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4387,
+    12.3365
+   ]
+  },
+  {
+   "nome": "Bar Barbari",
+   "tipo": "bacaro",
+   "indirizzo": "Calle Larga dei Bari 1158",
+   "sestiere": "Santa Croce",
+   "circa": [
+    45.4404,
+    12.3252
+   ]
+  },
+  {
+   "nome": "Ai Do Scaini",
+   "tipo": "bacaro",
+   "indirizzo": "San Polo 3080",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4365,
+    12.324
+   ]
+  },
+  {
+   "nome": "Estro - Pane e Vino",
+   "tipo": "bacaro",
+   "indirizzo": "Fondamenta Ormesini 2831",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4459,
+    12.3283
+   ]
+  },
+  {
+   "nome": "Tango Bar",
+   "tipo": "bacaro",
+   "indirizzo": "Fondamenta Pagan 283",
+   "sestiere": "Santa Croce",
+   "circa": [
+    45.4385,
+    12.3195
+   ]
+  },
+  {
+   "nome": "El Borrachero",
+   "tipo": "bacaro",
+   "indirizzo": "Dorsoduro 1078",
+   "sestiere": "Dorsoduro",
+   "circa": [
+    45.431,
+    12.3245
+   ]
+  },
+  {
+   "nome": "La Sete",
+   "tipo": "bacaro",
+   "indirizzo": "Calle Larga 2555",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4449,
+    12.3305
+   ]
+  },
+  {
+   "nome": "Osteria Al Sacro e Profano",
+   "tipo": "bacaro",
+   "indirizzo": "Parangon 502",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4383,
+    12.3347
+   ]
+  },
+  {
+   "nome": "El Venexian",
+   "tipo": "bacaro",
+   "alias": [
+    "Bar Venetico"
+   ],
+   "indirizzo": "Calle de Ca' Donà 2527"
+  },
+  {
+   "nome": "H2NO Enobirrateca",
+   "tipo": "bacaro",
+   "indirizzo": "Rio Terà S. Leonardo 1815",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4438,
+    12.3279
+   ]
+  },
+  {
+   "nome": "Dolce Vita Venezia",
+   "tipo": "bacaro",
+   "indirizzo": "Dorsoduro 3956A",
+   "sestiere": "Dorsoduro",
+   "circa": [
+    45.4365,
+    12.322
+   ]
+  },
+  {
+   "nome": "Panini e Vini da Babbo",
+   "tipo": "bacaro",
+   "indirizzo": "Dorsoduro 3059",
+   "sestiere": "Dorsoduro",
+   "circa": [
+    45.4335,
+    12.324
+   ]
+  },
+  {
+   "nome": "Terminal 2.0",
+   "tipo": "bacaro",
+   "indirizzo": "Dorsoduro 1526",
+   "sestiere": "Dorsoduro",
+   "circa": [
+    45.433,
+    12.319
+   ]
+  },
+  {
+   "nome": "Baccalà Veneto",
+   "tipo": "bacaro",
+   "indirizzo": "Sotoportego dei Do Mori 414",
+   "sestiere": "San Polo",
+   "circa": [
+    45.4389,
+    12.334
+   ]
+  },
+  {
+   "nome": "Birreria Penasa 2.0",
+   "tipo": "bar",
+   "indirizzo": "Campo SS. Filippo e Giacomo 4335",
+   "sestiere": "Castello",
+   "circa": [
+    45.4347,
+    12.3415
+   ]
+  },
+  {
+   "nome": "Bacaro 1813",
+   "tipo": "bacaro",
+   "indirizzo": "Via Garibaldi 1813",
+   "sestiere": "Castello",
+   "circa": [
+    45.432,
+    12.3526
+   ]
+  },
+  {
+   "nome": "Vecio Trani",
+   "tipo": "bacaro",
+   "indirizzo": "Via Garibaldi 1582",
+   "sestiere": "Castello",
+   "circa": [
+    45.4321,
+    12.3525
+   ]
+  },
+  {
+   "nome": "QuasiPronto",
+   "tipo": "bacaro",
+   "indirizzo": "Campiello Riccardo Selvatico 5666",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4385,
+    12.3378
+   ]
+  },
+  {
+   "nome": "La Corte 1642",
+   "tipo": "bacaro",
+   "indirizzo": "Cannaregio 1642",
+   "sestiere": "Cannaregio",
+   "circa": [
+    45.4433,
+    12.3283
+   ]
+  },
+  {
+   "nome": "La Palanca",
+   "tipo": "bacaro",
+   "indirizzo": "Fondamenta Sant'Eufemia 448",
+   "sestiere": "Giudecca",
+   "circa": [
+    45.427,
+    12.331
+   ]
+  },
+  {
+   "nome": "Osteria El ToEdo",
+   "tipo": "bacaro",
+   "indirizzo": "Fondamenta Venier 25",
+   "sestiere": "Murano",
+   "circa": [
+    45.457,
+    12.356
+   ]
+  },
+  {
+   "nome": "Vineria da Jacopo",
+   "tipo": "bacaro",
+   "indirizzo": "Calle de Cà Zane 434",
+   "sestiere": "Burano",
+   "circa": [
+    45.4858,
+    12.4175
+   ]
+  },
+  {
+   "nome": "Ai Banky Cicchetteria e friggitoria",
+   "tipo": "bacaro",
+   "indirizzo": "Via S. Martino Sinistro 330",
+   "sestiere": "Burano",
+   "circa": [
+    45.4855,
+    12.417
+   ]
+  },
+  {
+   "nome": "In Riva bistrò",
+   "tipo": "bar",
+   "indirizzo": "Fondamenta di Cavanella 19",
+   "sestiere": "Burano",
+   "circa": [
+    45.4848,
+    12.416
+   ]
+  }
+ ]
+}

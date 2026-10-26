@@ -32,6 +32,13 @@ Si installa su iPhone da Safari con **Condividi → Aggiungi alla schermata Home
 ] }
 ```
 
+## Lista curata dei bacari
+
+`data/bacari.json` è la lista dei bacari rivista a mano (guide + Google Maps, ottobre 2026) e unita ai dati OSM dal build:
+`tipi` corregge la categoria di un locale OSM, `escludi` toglie doppioni, `nuovi` aggiunge i locali che su OSM mancano
+(la posizione si cerca su OSM per nome, poi con Nominatim per indirizzo; `circa` è la stima di riserva).
+La tabella completa con fonti e confidenza è nella cartella del progetto, `bacari-lista/lista-master.md`.
+
 ## Provarla in locale
 
 ```sh

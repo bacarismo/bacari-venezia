@@ -239,6 +239,120 @@ def apply_preferiti(locali, path):
     return locali
 
 
+RISTORANTI_QUERY = """
+[out:json][timeout:120];
+nwr["amenity"~"^(restaurant|fast_food|ice_cream|bar|pub|cafe|wine_bar)$"]["name"]({s},{w},{n},{e});
+out center tags;
+""".format(s=BBOX[0], w=BBOX[1], n=BBOX[2], e=BBOX[3])
+
+PAROLE_VUOTE = set("""osteria ostaria hostaria hosteria bar bacaro bacareto cantina enoteca trattoria ristorante
+cicchetteria cicheteria vineria al alla alle ai a la le lo da de dei del el il i e ae venezia the wine""".split())
+
+
+def parole(nome):
+    import unicodedata
+    s = unicodedata.normalize("NFKD", nome.lower())
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return {w for w in re.findall(r"[a-z0-9]+", s) if w not in PAROLE_VUOTE}
+
+
+def stesso_nome(a, b):
+    pa, pb = parole(a), parole(b)
+    if not pa or not pb:
+        return False
+    piccolo = pa if len(pa) <= len(pb) else pb
+    return piccolo <= (pa & pb)
+
+
+def cerca_per_nome(nomi, posti, vicino=None, raggio=400):
+    """Il posto più vicino a 'vicino' (entro raggio) con lo stesso nome; senza 'vicino' solo se è unico."""
+    trovati = [p for p in posti if any(stesso_nome(n, p["nome"]) for n in nomi)]
+    if vicino:
+        trovati = [p for p in trovati if _dist(p, vicino) < raggio]
+        return min(trovati, key=lambda p: _dist(p, vicino), default=None)
+    return trovati[0] if len(trovati) == 1 else None
+
+
+def geocodifica(indirizzo, sestiere):
+    """Nominatim, una richiesta al secondo come da regolamento."""
+    q = ", ".join(x for x in (indirizzo, sestiere, "Venezia") if x)
+    params = urllib.parse.urlencode({"q": q, "format": "jsonv2", "limit": 1, "countrycodes": "it",
+                                     "viewbox": f"{BBOX[1]},{BBOX[2]},{BBOX[3]},{BBOX[0]}", "bounded": 1})
+    time.sleep(1.1)
+    try:
+        res = json.loads(http_get("https://nominatim.openstreetmap.org/search?" + params, timeout=30))
+    except Exception as ex:
+        print(f"  Nominatim fallito per {q}: {ex}", file=sys.stderr)
+        return None
+    if not res:
+        return None
+    return {"lat": round(float(res[0]["lat"]), 6), "lon": round(float(res[0]["lon"]), 6)}
+
+
+def apply_curati(locali, path, ristoranti=None, geocoder=geocodifica):
+    """Unisce data/bacari.json: categorie corrette a mano, doppioni da togliere, locali che OSM non ha."""
+    if not os.path.exists(path):
+        return locali
+    with open(path, encoding="utf-8") as f:
+        cur = json.load(f)
+    via = set(cur.get("escludi", []))
+    locali = [l for l in locali if l["id"] not in via]
+    by_id = {l["id"]: l for l in locali}
+    for oid, tipo in cur.get("tipi", {}).items():
+        if oid in by_id:
+            by_id[oid]["tipo"] = tipo
+        else:
+            print(f"  curato: {oid} non è più su OSM", file=sys.stderr)
+    stats = defaultdict(int)
+    for n in cur.get("nuovi", []):
+        nomi = [n["nome"]] + n.get("alias", [])
+        circa = {"lat": n["circa"][0], "lon": n["circa"][1]} if n.get("circa") else None
+        id_ = "curato/" + re.sub(r"\W+", "-", n["nome"].lower()).strip("-")
+        gia = cerca_per_nome(nomi, [l for l in locali if not l["id"].startswith("curato/")], circa)
+        if gia:  # nel frattempo è comparso su OSM
+            gia["tipo"] = n["tipo"]
+            stats["già su OSM"] += 1
+            continue
+        loc = {"id": id_, "nome": n["nome"], "tipo": n["tipo"]}
+        indirizzo = ", ".join(x for x in (n.get("indirizzo"), n.get("sestiere")) if x)
+        if indirizzo:
+            loc["indirizzo"] = indirizzo
+        pos = cerca_per_nome(nomi, ristoranti or [], circa)
+        if pos:
+            stats["posizione da OSM"] += 1
+        elif geocoder and n.get("indirizzo"):
+            pos = geocoder(n["indirizzo"], n.get("sestiere"))
+            if pos and circa and _dist(pos, circa) > 800:
+                pos = None  # troppo lontano dalla stima: probabilmente un'altra calle
+            if pos:
+                stats["posizione da indirizzo"] += 1
+        if not pos and circa:
+            pos = circa
+            stats["posizione stimata"] += 1
+        if not pos:
+            print(f"  curato senza posizione, saltato: {n['nome']}", file=sys.stderr)
+            continue
+        loc["lat"], loc["lon"] = pos["lat"], pos["lon"]
+        locali = [l for l in locali if l["id"] != id_] + [loc]
+    print(f"Curati: {len(cur.get('tipi', {}))} categorie, {len(via)} esclusi, nuovi {dict(stats)}", file=sys.stderr)
+    return locali
+
+
+def ristoranti_osm():
+    try:
+        osm = fetch_osm(RISTORANTI_QUERY)
+    except RuntimeError as ex:
+        print(f"Ricerca ristoranti per i curati fallita: {ex}", file=sys.stderr)
+        return []
+    out = []
+    for el in osm.get("elements", []):
+        lat = el.get("lat") or el.get("center", {}).get("lat")
+        lon = el.get("lon") or el.get("center", {}).get("lon")
+        if lat is not None and lon is not None:
+            out.append({"nome": el["tags"]["name"], "lat": round(lat, 6), "lon": round(lon, 6)})
+    return out
+
+
 # ---------------------------------------------------------------- GTFS
 
 def read_csv(z, name):
@@ -631,6 +745,11 @@ def main():
         locali = build_locali(osm) if osm is not None else old
         for ext in ("kml", "kmz"):
             locali = apply_kml(locali, os.path.join(ROOT, "data", "preferiti." + ext))
+        curati = os.path.join(ROOT, "data", "bacari.json")
+        if args.osm_file:
+            locali = apply_curati(locali, curati, geocoder=None)
+        else:
+            locali = apply_curati(locali, curati, ristoranti_osm())
         locali = apply_preferiti(locali, os.path.join(ROOT, "data", "preferiti.json"))
         locali.sort(key=lambda l: l["nome"].lower())
         write_json(os.path.join(args.out, "locali.json"), {
