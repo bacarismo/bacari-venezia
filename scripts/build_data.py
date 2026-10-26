@@ -14,6 +14,7 @@ import math
 import os
 import re
 import sys
+import time
 import urllib.parse
 import urllib.request
 import zipfile
@@ -26,6 +27,7 @@ DATA = os.path.join(ROOT, "data")
 OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
 ]
 GTFS_URL = os.environ.get(
     "ACTV_GTFS_URL",
@@ -61,13 +63,16 @@ def http_get(url, data=None, timeout=180):
 def fetch_osm():
     body = urllib.parse.urlencode({"data": OVERPASS_QUERY}).encode()
     last = None
-    for url in OVERPASS_URLS:
-        try:
-            print(f"Overpass: {url}", file=sys.stderr)
-            return json.loads(http_get(url, body))
-        except Exception as ex:  # prova il mirror successivo
-            last = ex
-            print(f"  fallito: {ex}", file=sys.stderr)
+    for attempt in range(2):
+        if attempt:
+            time.sleep(30)
+        for url in OVERPASS_URLS:
+            try:
+                print(f"Overpass: {url}", file=sys.stderr)
+                return json.loads(http_get(url, body))
+            except Exception as ex:  # prova il mirror successivo
+                last = ex
+                print(f"  fallito: {ex}", file=sys.stderr)
     raise RuntimeError(f"Overpass non raggiungibile: {last}")
 
 
@@ -468,8 +473,17 @@ def main():
             with open(args.osm_file, encoding="utf-8") as f:
                 osm = json.load(f)
         else:
-            osm = fetch_osm()
-        locali = build_locali(osm)
+            osm = None
+            try:
+                osm = fetch_osm()
+            except RuntimeError as ex:
+                # Overpass a volte è giù: si tengono i locali già pubblicati
+                prev = os.environ.get("SITO_PUBBLICATO")
+                if not prev:
+                    raise
+                print(f"{ex}. Riuso i locali da {prev}", file=sys.stderr)
+                old = json.loads(http_get(prev.rstrip("/") + "/data/locali.json"))["locali"]
+        locali = build_locali(osm) if osm is not None else old
         for ext in ("kml", "kmz"):
             locali = apply_kml(locali, os.path.join(ROOT, "data", "preferiti." + ext))
         locali = apply_preferiti(locali, os.path.join(ROOT, "data", "preferiti.json"))

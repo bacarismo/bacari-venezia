@@ -28,6 +28,8 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Scarica locali (OpenStreetMap) e orari (ACTV)
         run: python scripts/build_data.py
+        env:
+          SITO_PUBBLICATO: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
       - name: Prepara il sito
         run: |
           mkdir _site
