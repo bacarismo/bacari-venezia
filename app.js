@@ -410,7 +410,13 @@
         maxResultCount: 1,
         locationBias: { circle: { center: { latitude: l.lat, longitude: l.lon }, radius: 100 } },
       }),
-    }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("google " + r.status))))
+    }).then(async (r) => {
+      if (r.ok) return r.json();
+      // il messaggio di Google dice cosa manca (API non attiva, referrer, quota...)
+      let msg = "";
+      try { msg = (await r.json()).error.message; } catch (e) { /* risposta non JSON */ }
+      throw new Error(`Google ${r.status}${msg ? ": " + msg : ""}`);
+    })
       .then((j) => {
         const g = j.places && j.places[0];
         // se Google trova un posto lontano non è lo stesso locale
@@ -425,9 +431,10 @@
     const box = $("#gfoto", el);
     let g = null;
     try { g = await gPlace(l); } catch (e) {
+      console.warn(e);
       box.remove();
       const sc = $("#gscheda", el);
-      if (sc) sc.innerHTML = '<p class="muted">Scheda Google non disponibile in questo momento.</p>';
+      if (sc) sc.innerHTML = `<p class="muted">Scheda Google non disponibile.</p><p class="foot">${esc(e.message)}</p>`;
       return;
     }
     if (!box.isConnected) return;
