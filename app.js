@@ -429,22 +429,27 @@
   }
   async function caricaGoogle(l, el) {
     const box = $("#gfoto", el);
+    const sc = $("#gscheda", el);
+    box.innerHTML = '<p class="gstato">Cerco la foto su Google…</p>';
     let g = null;
     try { g = await gPlace(l); } catch (e) {
       console.warn(e);
-      box.remove();
-      const sc = $("#gscheda", el);
-      if (sc) sc.innerHTML = `<p class="muted">Scheda Google non disponibile.</p><p class="foot">${esc(e.message)}</p>`;
+      // in alto, ben visibile: il messaggio di Google dice cosa sistemare nella console
+      box.innerHTML = `<p class="gstato err">Foto Google non disponibile.<br><small>${esc(e.message)}</small></p>`;
+      if (sc) sc.innerHTML = '<p class="muted">Scheda Google non disponibile.</p>';
       return;
     }
     if (!box.isConnected) return;
-    if (!g) { box.remove(); $("#gscheda", el).innerHTML = '<p class="muted">Locale non trovato su Google Maps.</p>'; return; }
+    if (!g) { box.innerHTML = '<p class="gstato">Locale non trovato su Google Maps.</p>'; if (sc) sc.innerHTML = ""; return; }
     const ph = g.photos && g.photos[0];
     if (ph) {
       const autore = (ph.authorAttributions || [])[0];
       box.innerHTML = `<img alt="Foto di ${esc(l.nome)}" loading="lazy" src="https://places.googleapis.com/v1/${esc(ph.name)}/media?maxWidthPx=800&key=${encodeURIComponent(googleKey())}">
         <p class="credit">Foto${autore ? ` di <a href="${esc(autore.uri)}" target="_blank" rel="noopener">${esc(autore.displayName)}</a>` : ""} · Google Maps</p>`;
-    } else box.remove();
+      box.querySelector("img").addEventListener("error", () => {
+        box.innerHTML = '<p class="gstato err">Google non ha restituito la foto (controlla che la chiave possa usare Places API New).</p>';
+      });
+    } else box.innerHTML = '<p class="gstato">Su Google questo locale non ha foto.</p>';
     $("#gopen", el)?.addEventListener("click", () => {
       $("#gscheda", el).innerHTML = `<iframe class="gembed" title="Scheda Google di ${esc(l.nome)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
         src="https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(googleKey())}&q=place_id:${encodeURIComponent(g.id)}&language=it"></iframe>

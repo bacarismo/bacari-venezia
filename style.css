@@ -267,3 +267,6 @@ body[data-sheet="full"] .fab { display: none; }
 .lock button { font: 700 17px var(--body); padding: 12px; border-radius: 12px; border: 0; background: var(--ink); color: var(--surface); width: min(320px, 100%); }
 .lock .err { color: var(--ko); }
 body.locked .topbar, body.locked .sheet, body.locked .fab { visibility: hidden; }
+.gstato { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--bg); color: var(--muted); font-size: 14px; }
+.gstato.err { color: var(--ko); }
+.gstato small { color: var(--muted); overflow-wrap: anywhere; }
