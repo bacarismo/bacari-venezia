@@ -332,7 +332,7 @@ body.navigando .topbar { visibility: hidden; }
 }
 .menu-btn[hidden] { display: none; }
 .menu-btn svg { width: 22px; height: 22px; fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; }
-.toast { z-index: 2500; }
+.toast { z-index: 3100; }
 
 .gfab {
   position: fixed; z-index: 1000; left: max(12px, var(--safe-l)); bottom: calc(var(--sheet-h, 150px) + 12px);
@@ -499,4 +499,6 @@ body:not(.gioco) .gfab, body.navigando .gfab, body.locked .gfab, body.navigando 
 .g-avpick span { font-size: 30px; line-height: 1; }
 .g-avpick img { width: 104px; height: 104px; object-fit: cover; display: block; }
 .g-nota { text-align: center; }
+.g-err { margin: 0; color: var(--ko); font-weight: 700; text-align: center; }
+.g-err[hidden] { display: none; }
 body.benvenuto .gfab, body.benvenuto .invito { display: none; }

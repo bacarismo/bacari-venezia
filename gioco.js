@@ -239,6 +239,7 @@
           <label id="g-pinbox" hidden>PIN <input name="pin" inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="off" placeholder="••••"></label>
           <label class="solo-nuovo">Bio <span class="muted">(facoltativa)</span><input name="bio" maxlength="160" placeholder="Ombra preferita, superpotere…"></label>
           <button class="btn primary" type="submit">Iscriviti</button>
+          <p class="g-err" id="g-err" role="alert" hidden></p>
           <p class="muted g-nota" id="g-nota">Su questo telefono resti collegato. Da un altro telefono, o dopo aver messo l'app nella Home, usa Accedi col tuo nome.</p>
         </form>
       </div>`;
@@ -269,7 +270,11 @@
     f.addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = $("button[type=submit]", f);
+      const box = $("#g-err", pag);
+      box.hidden = true;
       btn.disabled = true;
+      const testo = btn.textContent;
+      btn.textContent = "Un attimo…";
       const nome = f.nome.value.trim(), pin = f.pin.value.trim();
       try {
         const r = modo === "nuovo"
@@ -290,9 +295,23 @@
         document.body.classList.remove("benvenuto");
         aggiornaMenu();
         toast(modo === "nuovo" ? `Benvenuto ${G.io.nome}! Tocca + per segnare punti` : `Bentornato ${G.io.nome}`);
-      } catch (err) { errore(err); }
+      } catch (err) {
+        // l'errore resta scritto sotto il pulsante (un toast finirebbe dietro la pagina)
+        console.warn(err);
+        box.textContent = spiegaErrore(err);
+        box.hidden = false;
+      }
       btn.disabled = false;
+      btn.textContent = testo;
     });
+  }
+
+  function spiegaErrore(e) {
+    const m = (e && (e.message || e.error_description)) || "";
+    if (/could not find the function|schema cache/i.test(m)) return "Il database non è aggiornato: va lanciato lo script pin-solo-admin.sql in Supabase.";
+    if (/permission denied/i.test(m)) return "Il database non ha i permessi: va lanciato lo script permessi.sql in Supabase.";
+    if (/failed to fetch|network/i.test(m)) return "Nessuna connessione con il server, riprova.";
+    return m || "Qualcosa è andato storto, riprova";
   }
 
   // foto profilo: ritaglio quadrato al centro, 256 px
