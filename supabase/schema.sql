@@ -1,12 +1,13 @@
 -- Bacaro Tour 2026 · gioco a punti
--- Da incollare una volta in Supabase: SQL Editor → New query → Run.
+-- Da incollare in Supabase: SQL Editor → New query → Run.
+-- Si può rilanciare quando si vuole: crea quello che manca e aggiorna il resto, senza toccare i dati.
 -- Tutte le regole di sicurezza stanno qui (Row Level Security): la chiave "anon" nel codice
 -- pubblico permette solo quello che queste regole consentono.
 
 create extension if not exists pgcrypto with schema extensions;
 
 -- ------------------------------------------------------------ profili
-create table public.profili (
+create table if not exists public.profili (
   id uuid primary key default gen_random_uuid(),
   user_id uuid unique references auth.users on delete set null,
   nome text not null check (char_length(trim(nome)) between 2 and 24),
@@ -15,22 +16,22 @@ create table public.profili (
   ruolo text not null default 'basic' check (ruolo in ('basic', 'admin')),
   created_at timestamptz not null default now()
 );
-create unique index profili_nome_unico on public.profili (lower(trim(nome)));
+create unique index if not exists profili_nome_unico on public.profili (lower(trim(nome)));
 
 -- PIN separati: nessuna regola li rende leggibili, li usano solo le funzioni qui sotto
-create table public.pin (
+create table if not exists public.pin (
   profilo_id uuid primary key references public.profili on delete cascade,
   hash text not null,
   errori int not null default 0,
   bloccato_fino timestamptz
 );
 
-create function public.mio_profilo() returns uuid
+create or replace function public.mio_profilo() returns uuid
 language sql stable security definer set search_path = public as $$
   select id from profili where user_id = auth.uid()
 $$;
 
-create function public.sono_admin() returns boolean
+create or replace function public.sono_admin() returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from profili where user_id = auth.uid() and ruolo = 'admin')
 $$;
@@ -78,7 +79,7 @@ begin
 end $$;
 
 -- ------------------------------------------------------------ regolamento
-create table public.regole (
+create table if not exists public.regole (
   codice text primary key,
   categoria text not null,
   nome text not null,
@@ -106,10 +107,12 @@ insert into public.regole (codice, categoria, nome, emoji, punti, richiede_foto,
   ('badge_bacari',    'Badge',   'Badge: 10 bacari',              '🏅', 5,   false, false, 60),
   ('badge_sestieri',  'Badge',   'Badge: tutti i sestieri',       '🏅', 5,   false, false, 61),
   ('badge_cicchetto', 'Badge',   'Badge: re del cicchetto (10 cicchetti)', '👑', 5, false, false, 62),
-  ('correzione',      'Admin',   'Correzione dell''admin',        '✏️', 0,   false, false, 90);
+  ('correzione',      'Admin',   'Correzione dell''admin',        '✏️', 0,   false, false, 90)
+on conflict (codice) do update set categoria = excluded.categoria, nome = excluded.nome, emoji = excluded.emoji,
+  punti = excluded.punti, richiede_foto = excluded.richiede_foto, segnabile = excluded.segnabile, ordine = excluded.ordine;
 
 -- ------------------------------------------------------------ avvisi (messaggi, punti doppi, sfide lampo)
-create table public.avvisi (
+create table if not exists public.avvisi (
   id bigint generated always as identity primary key,
   tipo text not null check (tipo in ('messaggio', 'doppi', 'sfida')),
   titolo text not null check (char_length(titolo) between 1 and 80),
@@ -122,7 +125,7 @@ create table public.avvisi (
 );
 
 -- ------------------------------------------------------------ foto, reazioni, commenti
-create table public.foto (
+create table if not exists public.foto (
   id bigint generated always as identity primary key,
   profilo_id uuid not null references public.profili on delete cascade,
   path text not null,       -- grande (~300 KB)
@@ -133,14 +136,14 @@ create table public.foto (
   created_at timestamptz not null default now()
 );
 
-create table public.reazioni (
+create table if not exists public.reazioni (
   foto_id bigint not null references public.foto on delete cascade,
   profilo_id uuid not null references public.profili on delete cascade,
   emoji text not null check (emoji in ('❤️', '😂', '🔥')),
   primary key (foto_id, profilo_id, emoji)
 );
 
-create table public.commenti (
+create table if not exists public.commenti (
   id bigint generated always as identity primary key,
   foto_id bigint not null references public.foto on delete cascade,
   profilo_id uuid not null references public.profili on delete cascade,
@@ -149,7 +152,7 @@ create table public.commenti (
 );
 
 -- ------------------------------------------------------------ punti
-create table public.punti (
+create table if not exists public.punti (
   id bigint generated always as identity primary key,
   profilo_id uuid not null references public.profili on delete cascade,
   codice text not null references public.regole,
@@ -163,10 +166,10 @@ create table public.punti (
   annullato boolean not null default false,
   created_at timestamptz not null default now()
 );
-create index punti_profilo on public.punti (profilo_id) where not annullato;
-create index punti_data on public.punti (created_at desc);
+create index if not exists punti_profilo on public.punti (profilo_id) where not annullato;
+create index if not exists punti_data on public.punti (created_at desc);
 
-create view public.classifica with (security_invoker = true) as
+create or replace view public.classifica with (security_invoker = true) as
   select p.id, p.nome, p.foto,
     coalesce(sum(x.punti) filter (where not x.annullato), 0) as totale,
     count(distinct x.bacaro_id) filter (where x.codice = 'checkin' and not x.annullato) as bacari
@@ -176,7 +179,7 @@ create view public.classifica with (security_invoker = true) as
 -- Segna punti. I punti li calcola il server dal regolamento (niente furbate dal telefono):
 -- punti doppi se c'è un evento attivo, check-in una volta per bacaro, bonus e badge automatici.
 -- L'admin può segnare per altri (p_per) e con punti a scelta (p_punti, anche negativi).
-create function public.segna(
+create or replace function public.segna(
   p_codice text, p_nota text default '', p_bacaro_id text default null, p_bacaro_nome text default null,
   p_sestiere text default null, p_foto bigint default null, p_avviso bigint default null,
   p_per uuid default null, p_punti numeric default null
@@ -291,25 +294,42 @@ grant update (punti, nota, annullato) on public.punti to authenticated;
 revoke execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin from anon, public;
 grant execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin to authenticated;
 
+drop policy if exists "leggi" on public.profili;
 create policy "leggi" on public.profili for select to authenticated using (true);
+drop policy if exists "modifica il mio" on public.profili;
 create policy "modifica il mio" on public.profili for update to authenticated using (user_id = auth.uid() or sono_admin());
+drop policy if exists "leggi" on public.regole;
 create policy "leggi" on public.regole for select to authenticated using (true);
+drop policy if exists "leggi" on public.punti;
 create policy "leggi" on public.punti for select to authenticated using (true);
+drop policy if exists "admin corregge" on public.punti;
 create policy "admin corregge" on public.punti for update to authenticated using (sono_admin());
+drop policy if exists "leggi" on public.avvisi;
 create policy "leggi" on public.avvisi for select to authenticated using (true);
+drop policy if exists "admin scrive" on public.avvisi;
 create policy "admin scrive" on public.avvisi for all to authenticated using (sono_admin()) with check (sono_admin());
+drop policy if exists "leggi" on public.foto;
 create policy "leggi" on public.foto for select to authenticated using (not nascosta or profilo_id = mio_profilo() or sono_admin());
+drop policy if exists "carica le mie" on public.foto;
 create policy "carica le mie" on public.foto for insert to authenticated with check (profilo_id = mio_profilo());
+drop policy if exists "admin modera" on public.foto;
 create policy "admin modera" on public.foto for update to authenticated using (sono_admin());
+drop policy if exists "cancella" on public.foto;
 create policy "cancella" on public.foto for delete to authenticated using (profilo_id = mio_profilo() or sono_admin());
+drop policy if exists "leggi" on public.reazioni;
 create policy "leggi" on public.reazioni for select to authenticated using (true);
+drop policy if exists "metti la mia" on public.reazioni;
 create policy "metti la mia" on public.reazioni for insert to authenticated with check (profilo_id = mio_profilo());
+drop policy if exists "togli la mia" on public.reazioni;
 create policy "togli la mia" on public.reazioni for delete to authenticated using (profilo_id = mio_profilo());
+drop policy if exists "leggi" on public.commenti;
 create policy "leggi" on public.commenti for select to authenticated using (true);
+drop policy if exists "scrivi il mio" on public.commenti;
 create policy "scrivi il mio" on public.commenti for insert to authenticated with check (profilo_id = mio_profilo());
+drop policy if exists "cancella" on public.commenti;
 create policy "cancella" on public.commenti for delete to authenticated using (profilo_id = mio_profilo() or sono_admin());
 
--- permessi espliciti (copia di permessi.sql: i progetti nuovi non li danno in automatico)
+-- permessi espliciti: i progetti Supabase nuovi non li danno in automatico alle tabelle create via SQL
 grant usage on schema public to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 grant execute on function public.mio_profilo(), public.sono_admin() to authenticated;
@@ -328,13 +348,23 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
   values ('foto', 'foto', true, 2097152, array['image/jpeg', 'image/webp', 'image/png'])
   on conflict (id) do nothing;
 -- ognuno scrive solo nella sua cartella: foto/<id profilo>/...
+drop policy if exists "carica nella mia cartella" on storage.objects;
 create policy "carica nella mia cartella" on storage.objects for insert to authenticated
   with check (bucket_id = 'foto' and (storage.foldername(name))[1] = public.mio_profilo()::text);
+drop policy if exists "cancella le mie o admin" on storage.objects;
 create policy "cancella le mie o admin" on storage.objects for delete to authenticated
   using (bucket_id = 'foto' and ((storage.foldername(name))[1] = public.mio_profilo()::text or public.sono_admin()));
 
 -- ------------------------------------------------------------ tempo reale (banner e log che si aggiornano da soli)
-alter publication supabase_realtime add table public.avvisi, public.punti, public.foto, public.commenti, public.reazioni;
+do $$
+declare t text;
+begin
+  foreach t in array array['avvisi', 'punti', 'foto', 'commenti', 'reazioni'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
 
 -- Ultimo passo, DOPO aver creato il tuo profilo nell'app: diventa admin (cambia il nome se serve)
 -- update public.profili set ruolo = 'admin' where nome = 'Paolo';
