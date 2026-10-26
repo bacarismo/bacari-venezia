@@ -17,6 +17,7 @@
   "node/13850403227": "bacaro",
   "node/13897541210": "bacaro",
   "node/1522293722": "bacaro",
+  "node/1698431331": "bacaro",
   "node/1879269049": "bacaro",
   "node/1987313539": "bacaro",
   "node/2165495953": "bar",
@@ -57,7 +58,6 @@
   "node/4492301495": "bacaro",
   "node/4492301496": "bacaro",
   "node/4492301497": "bacaro",
-  "node/4492301498": "bacaro",
   "node/4492301499": "bacaro",
   "node/4492344893": "bacaro",
   "node/4492364089": "bacaro",
@@ -75,7 +75,6 @@
   "node/4998734623": "bacaro",
   "node/5048106776": "bacaro",
   "node/5109258122": "bacaro",
-  "node/5217494723": "bacaro",
   "node/5251963730": "bacaro",
   "node/5308475923": "caffe",
   "node/5310473621": "bacaro",
@@ -85,7 +84,6 @@
   "node/5554511821": "bacaro",
   "node/5649398722": "bacaro",
   "node/5833628286": "bacaro",
-  "node/5833628388": "bacaro",
   "node/5833634585": "bacaro",
   "node/5842486919": "bar",
   "node/5849630829": "bacaro",
@@ -109,7 +107,6 @@
  "escludi": [
   "node/13857722061",
   "node/1671788276",
-  "node/1698431331",
   "node/9870720098"
  ],
  "nuovi": [
@@ -700,6 +697,26 @@
    "circa": [
     45.4848,
     12.416
+   ]
+  },
+  {
+   "nome": "All'Arco",
+   "tipo": "bacaro",
+   "indirizzo": "Calle de l'Arco 436",
+   "sestiere": "San Polo",
+   "circa": [
+    45.438887,
+    12.334039
+   ]
+  },
+  {
+   "nome": "Il Mercante",
+   "tipo": "bacaro",
+   "indirizzo": "Fondamenta dei Frari 2564",
+   "sestiere": "San Polo",
+   "circa": [
+    45.437252,
+    12.327326
    ]
   }
  ]
