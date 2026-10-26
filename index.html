@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bacarooooo</title>
+<meta name="description" content="Bacari, bar e vaporetti di Venezia su una mappa.">
+<meta name="theme-color" content="#f3f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151a1a" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Bacarooooo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="map" aria-label="Mappa di Venezia"></div>
+
+<header class="topbar">
+  <div class="searchbox">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+    <input id="q" type="search" placeholder="Cerca un bacaro o una fermata" autocomplete="off" enterkeyhint="search">
+  </div>
+  <div class="chips" role="group" aria-label="Cosa mostrare">
+    <button class="chip" data-f="bacaro" aria-pressed="true"><i class="dot dot-bacaro"></i>Bacari</button>
+    <button class="chip" data-f="bar" aria-pressed="true"><i class="dot dot-bar"></i>Bar</button>
+    <button class="chip" data-f="caffe" aria-pressed="false"><i class="dot dot-caffe"></i>Caffè</button>
+    <button class="chip" data-f="fermate" aria-pressed="true"><i class="dot dot-fermata"></i>Vaporetti</button>
+    <button class="chip" data-f="aperti" aria-pressed="false">Aperti ora</button>
+  </div>
+</header>
+
+<button id="locate" class="fab" aria-label="Dove sono">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+</button>
+
+<section id="sheet" class="sheet" data-state="peek" aria-live="polite">
+  <button class="handle" id="handle" aria-label="Espandi o riduci"><span></span></button>
+  <nav class="tabs" id="tabs">
+    <button data-tab="vicini" aria-selected="true">Qui intorno</button>
+    <button data-tab="linee" aria-selected="false">Linee</button>
+    <button data-tab="preferiti" aria-selected="false">Preferiti</button>
+  </nav>
+  <div class="sheet-body" id="body"></div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="orari.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

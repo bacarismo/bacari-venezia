@@ -1,0 +1,4 @@
+{
+  "_come_si_usa": "Ogni voce si aggancia a un locale di OpenStreetMap con 'osm' (es. node/123456) oppure con il 'nome' esatto. Se il locale non è su OSM, aggiungi lat e lon. Campi facoltativi: nota, consigli, prezzo_ombra, tipo (bacaro, bar, caffe).",
+  "locali": []
+}

@@ -1,0 +1,49 @@
+name: Aggiorna dati e pubblica
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * 1"   # ogni lunedì alle 5 (ora italiana)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test
+        run: python -m unittest discover -s tests -v
+      - name: Scarica locali (OpenStreetMap) e orari (ACTV)
+        run: python scripts/build_data.py
+      - name: Prepara il sito
+        run: |
+          mkdir _site
+          cp -r index.html style.css app.js orari.js sw.js manifest.webmanifest icons data _site/
+          sed -i "s/const VERSION = \"v1\"/const VERSION = \"$(date +%Y%m%d%H%M)\"/" _site/sw.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
