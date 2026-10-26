@@ -76,7 +76,7 @@
 
   function lineaBadge(r) {
     const l = state.actv.linee[r];
-    const style = l.colore ? ` style="background:${l.colore};color:${contrast(l.colore)}"` : "";
+    const style = l.colore ? ` style="background:${l.colore};color:${l.testo || contrast(l.colore)}${/^#f{6}$/i.test(l.colore) ? ";box-shadow:inset 0 0 0 1.5px #1d2422" : ""}"` : "";
     return `<span class="linea"${style}>${esc(l.nome)}</span>`;
   }
   function contrast(hex) {
@@ -446,7 +446,7 @@
           deps.innerHTML = `<div class="list">${shown.map((x) => {
             const past = x.m < now;
             const tra = giornoOff === 0 && !past ? (x.m - now < 60 ? `tra ${x.m - now} min` : "") : "";
-            return `<button class="row dep${past ? " past" : ""}" data-trip="${x.r}:${x.t}:${x.p}">${lineaBadge(x.r)}<div><div class="t">${esc(state.actv.capolinea[x.h] || "")}</div><div class="s">${tra}</div></div><div class="m"><b>${hhmm(x.m)}</b></div></button>`;
+            return `<button class="row dep${past ? " past" : ""}" data-trip="${x.r}:${x.t}:${x.p}">${lineaBadge(x.r)}<div><div class="t">${state.actv.capolinea[x.h] === f.nome ? "Giro completo" : esc(state.actv.capolinea[x.h] || "")}</div><div class="s">${tra}</div></div><div class="m"><b>${hhmm(x.m)}</b></div></button>`;
           }).join("")}</div>
           ${!tutte && (startAt > 0 || startAt + 30 < list.length) ? `<button class="btn" id="all" style="margin-top:8px">Tutte le ${list.length} partenze del giorno</button>` : ""}`;
           $("#all", deps)?.addEventListener("click", () => { tutte = true; draw(); });

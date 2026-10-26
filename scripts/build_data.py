@@ -346,7 +346,7 @@ def build_gtfs(zip_bytes, horizon_days=120):
     for t in trips:
         if t["service_id"] not in sidx or t["route_id"] not in ridx:
             continue
-        hs = t.get("trip_headsign") or ""
+        hs = stop_group_name(t.get("trip_headsign") or "")
         if hs not in hidx:
             hidx[hs] = len(headsigns)
             headsigns.append(hs)
@@ -409,11 +409,13 @@ def build_gtfs(zip_bytes, horizon_days=120):
     out_routes = []
     for i, r in enumerate(routes):
         color = r.get("route_color") or ""
+        text = r.get("route_text_color") or ""
         out_routes.append({
             "id": r["route_id"],
             "nome": r.get("route_short_name") or r.get("route_long_name") or r["route_id"],
-            "descr": r.get("route_long_name", ""),
+            "descr": " - ".join(stop_group_name(x) for x in r.get("route_long_name", "").split(" - ")),
             "colore": "#" + color if re.fullmatch(r"[0-9A-Fa-f]{6}", color) else None,
+            "testo": "#" + text if re.fullmatch(r"[0-9A-Fa-f]{6}", text) else None,
             "tracciato": route_lines.get(i, []),
             "corse": len(per_route.get(i, [])),
         })
