@@ -221,45 +221,100 @@
   function chiudiPagina() { $("#g-pagina").hidden = true; G.pagina = null; }
 
   // ------------------------------------------------------------ entra / crea profilo
+  // Pagina di avvio dopo la password del gruppo: iscriviti o accedi. Non si chiude finché non si entra.
   function apriEntra() {
-    apriModale(`
-      <h3>Entra nel gioco</h3>
-      <p class="muted">Classifica, punti e foto del gruppo. Il PIN ti serve per ritrovare il profilo su un altro telefono o dopo aver messo l'app nella Home.</p>
-      <div class="g-seg"><button data-m="nuovo" aria-pressed="true">Sono nuovo</button><button data-m="entra" aria-pressed="false">Ho già un profilo</button></div>
-      <form id="g-entra" class="g-form">
-        <label>Nome <input name="nome" required maxlength="24" minlength="2" autocomplete="nickname" placeholder="Come ti chiamano"></label>
-        <label>PIN di 4 cifre <input name="pin" required inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="off" placeholder="••••"></label>
-        <label class="solo-nuovo">Bio <span class="muted">(facoltativa)</span><input name="bio" maxlength="160" placeholder="Ombra preferita, superpotere…"></label>
-        <button class="btn primary" type="submit">Crea il profilo</button>
-      </form>`, (box) => {
-      let modo = "nuovo";
-      const f = $("#g-entra", box);
-      box.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => {
-        modo = b.dataset.m;
-        box.querySelectorAll("[data-m]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-        $(".solo-nuovo", box).hidden = modo !== "nuovo";
-        $("button[type=submit]", f).textContent = modo === "nuovo" ? "Crea il profilo" : "Entra";
-      }));
-      f.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const btn = $("button[type=submit]", f);
-        btn.disabled = true;
-        const nome = f.nome.value.trim(), pin = f.pin.value.trim();
-        try {
-          const r = modo === "nuovo"
-            ? await G.sb.rpc("crea_profilo", { p_nome: nome, p_pin: pin, p_bio: f.bio.value.trim() })
-            : await G.sb.rpc("entra_profilo", { p_nome: nome, p_pin: pin });
-          if (r.error) throw r.error;
-          if (!r.data) throw new Error("PIN sbagliato");
-          await caricaProfili();
-          G.io = G.profili.get(r.data);
-          chiudiModale();
-          aggiornaMenu();
-          toast(modo === "nuovo" ? `Benvenuto ${G.io.nome}! Tocca + per segnare punti` : `Bentornato ${G.io.nome}`);
-        } catch (err) { errore(err); }
-        btn.disabled = false;
-      });
+    if ($(".g-benvenuto")) return;
+    let foto = null;
+    const pag = document.createElement("div");
+    pag.className = "g-benvenuto";
+    pag.innerHTML = `
+      <div class="g-benv-in">
+        <img src="icons/icon-192.png" alt="" width="64" height="64">
+        <h1>Bacaro Tour 2026</h1>
+        <p class="muted">Punti, classifica e foto del gruppo.</p>
+        <div class="g-seg"><button type="button" data-m="nuovo" aria-pressed="true">Iscriviti</button><button type="button" data-m="entra" aria-pressed="false">Accedi</button></div>
+        <form id="g-entra" class="g-form">
+          <button type="button" class="g-avpick solo-nuovo" id="g-avpick" aria-label="Aggiungi la tua foto"><span>📷</span><small>Foto</small></button>
+          <label>Nome <input name="nome" required maxlength="24" minlength="2" autocomplete="nickname" placeholder="Come ti chiamano"></label>
+          <label id="g-pinbox" hidden>PIN <input name="pin" inputmode="numeric" pattern="\\d{4}" maxlength="4" autocomplete="off" placeholder="••••"></label>
+          <label class="solo-nuovo">Bio <span class="muted">(facoltativa)</span><input name="bio" maxlength="160" placeholder="Ombra preferita, superpotere…"></label>
+          <button class="btn primary" type="submit">Iscriviti</button>
+          <p class="muted g-nota" id="g-nota">Su questo telefono resti collegato. Da un altro telefono, o dopo aver messo l'app nella Home, usa Accedi col tuo nome.</p>
+        </form>
+      </div>`;
+    document.body.append(pag);
+    document.body.classList.add("benvenuto");
+    let modo = "nuovo";
+    const f = $("#g-entra", pag);
+    pag.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => {
+      modo = b.dataset.m;
+      pag.querySelectorAll("[data-m]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      pag.querySelectorAll(".solo-nuovo").forEach((x) => { x.hidden = modo !== "nuovo"; });
+      $("button[type=submit]", f).textContent = modo === "nuovo" ? "Iscriviti" : "Accedi";
+      $("#g-nota", pag).textContent = modo === "nuovo"
+        ? "Su questo telefono resti collegato. Da un altro telefono, o dopo aver messo l'app nella Home, usa Accedi col tuo nome."
+        : "Scrivi il nome con cui ti sei iscritto.";
+      $("#g-pinbox", pag).hidden = true;
+      f.pin.value = "";
+    }));
+    // il selettore del telefono offre sia la fotocamera sia il rullino
+    $("#g-avpick", pag).addEventListener("click", async () => {
+      const file = await scegliFile();
+      if (!file) return;
+      try {
+        foto = await ritagliaAvatar(file);
+        $("#g-avpick", pag).innerHTML = `<img src="${URL.createObjectURL(foto)}" alt="La tua foto">`;
+      } catch (e) { errore(e); }
     });
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = $("button[type=submit]", f);
+      btn.disabled = true;
+      const nome = f.nome.value.trim(), pin = f.pin.value.trim();
+      try {
+        const r = modo === "nuovo"
+          ? await G.sb.rpc("crea_profilo", { p_nome: nome, p_bio: f.bio.value.trim() })
+          : await G.sb.rpc("entra_profilo", { p_nome: nome, p_pin: pin || null });
+        // solo il profilo dell'admin ha un PIN: il server lo chiede e il campo compare
+        if (r.error && /PIN richiesto/.test(r.error.message)) {
+          $("#g-pinbox", pag).hidden = false;
+          f.pin.focus();
+          throw new Error("Questo profilo è protetto da PIN");
+        }
+        if (r.error) throw r.error;
+        if (!r.data) throw new Error("PIN sbagliato");
+        await caricaProfili();
+        G.io = G.profili.get(r.data);
+        if (modo === "nuovo" && foto) await salvaAvatar(foto).catch(() => toast("Profilo creato, ma la foto non è partita: riprova da Profilo"));
+        pag.remove();
+        document.body.classList.remove("benvenuto");
+        aggiornaMenu();
+        toast(modo === "nuovo" ? `Benvenuto ${G.io.nome}! Tocca + per segnare punti` : `Bentornato ${G.io.nome}`);
+      } catch (err) { errore(err); }
+      btn.disabled = false;
+    });
+  }
+
+  // foto profilo: ritaglio quadrato al centro, 256 px
+  async function ritagliaAvatar(file) {
+    const src = await decodifica(file);
+    const s = Math.min(src.width, src.height);
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    c.getContext("2d").drawImage(src, (src.width - s) / 2, (src.height - s) / 2, s, s, 0, 0, 256, 256);
+    const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
+    if (!blob) throw new Error("Non riesco a leggere questa foto");
+    return blob;
+  }
+  async function salvaAvatar(blob) {
+    const io = G.io;
+    const path = `${io.id}/avatar-${Date.now()}.jpg`;
+    const up = await G.sb.storage.from("foto").upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
+    if (up.error) throw up.error;
+    const { error } = await G.sb.from("profili").update({ foto: path }).eq("id", io.id);
+    if (error) throw error;
+    if (io.foto) G.sb.storage.from("foto").remove([io.foto]);
+    await caricaProfili();
   }
 
   // ------------------------------------------------------------ segna punti
@@ -784,7 +839,7 @@
             <button class="btn primary">Salva</button>
           </form>
           <div class="section-t">Questo telefono</div>
-          <p class="muted">Per entrare da un altro telefono usa "Ho già un profilo" con nome e PIN. Se dimentichi il PIN, chiedi all'admin.</p>
+          <p class="muted">Per entrare da un altro telefono usa "Accedi" con il tuo nome.</p>
           <button class="btn" id="g-esci">Esci da questo telefono</button>`;
         $("#g-pf", el).addEventListener("submit", async (e) => {
           e.preventDefault();
@@ -798,20 +853,7 @@
           const file = await scegliFile();
           if (!file) return;
           try {
-            const src = await decodifica(file);
-            // ritaglio quadrato al centro
-            const s = Math.min(src.width, src.height);
-            const c = document.createElement("canvas");
-            c.width = c.height = 256;
-            c.getContext("2d").drawImage(src, (src.width - s) / 2, (src.height - s) / 2, s, s, 0, 0, 256, 256);
-            const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.85));
-            const path = `${io.id}/avatar-${Date.now()}.jpg`;
-            const up = await G.sb.storage.from("foto").upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
-            if (up.error) throw up.error;
-            const { error } = await G.sb.from("profili").update({ foto: path }).eq("id", io.id);
-            if (error) throw error;
-            if (io.foto) G.sb.storage.from("foto").remove([io.foto]);
-            await caricaProfili();
+            await salvaAvatar(await ritagliaAvatar(file));
             aggiornaMenu();
             apriPagina("profilo");
             toast("Foto del profilo aggiornata");
@@ -826,7 +868,7 @@
           mieiCheckin = null;
           chiudiPagina();
           aggiornaMenu();
-          toast("Sei uscito");
+          apriEntra();
         });
       },
     };
@@ -856,7 +898,7 @@
             <div class="g-riga2"><label>Punti (anche negativi) <input name="punti" type="number" step="0.5" value="1" required></label></div>
             <input name="nota" maxlength="140" placeholder="Motivo"><button class="btn primary">Assegna</button></form>
           <p class="muted">Per annullare o cambiare un singolo punteggio: menu → Punteggi, ogni riga ha Modifica e Annulla. Foto e commenti si moderano dal feed Foto.</p>
-          <div class="section-t">🔑 PIN dimenticato</div>
+          <div class="section-t">🔑 PIN di un profilo (il tuo, o per proteggere quello di un amico)</div>
           <form class="g-form" data-f="pin"><select name="chi">${opzGiocatori()}</select><input name="pin" required inputmode="numeric" pattern="\\d{4}" maxlength="4" placeholder="Nuovo PIN"><button class="btn">Imposta il PIN</button></form>`;
         el.addEventListener("click", async (e) => {
           const b = e.target.closest("[data-stop]");

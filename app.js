@@ -1173,6 +1173,7 @@
   async function init() {
     const hash = location.hash; // va letto subito: le viste riscrivono l'indirizzo
     await sblocca();
+    if (window.Gioco) Gioco.avvia(); // subito dopo la password: iscriviti / accedi
     body.innerHTML = `<p class="empty">Carico la mappa…</p>`;
     const [loc, actv] = await Promise.allSettled([getJSON("data/locali.json"), getJSON("data/actv/index.json")]);
     if (loc.status === "fulfilled") {
@@ -1189,7 +1190,6 @@
     }
     fromHash(hash);
     invitoHome();
-    if (window.Gioco) Gioco.avvia();
   }
 
   // iPhone/iPad in Safari: la prima volta spiega come aggiungere l'app alla schermata Home
