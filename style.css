@@ -252,3 +252,18 @@ body[data-sheet="full"] .fab { display: none; }
 .origini { margin: 0 0 10px; padding: 10px; background: var(--bg); border-radius: 14px; }
 .searchbox.inline { box-shadow: none; border: 1px solid var(--line); height: 44px; max-width: none; margin-bottom: 4px; }
 .row.opt .s { white-space: normal; }
+
+/* ---------- accesso con password */
+.lock {
+  position: fixed; inset: 0; z-index: 3000; background: var(--bg);
+  display: grid; align-content: center; justify-items: center; gap: 12px; text-align: center;
+  padding: 24px max(24px, env(safe-area-inset-left, 0px));
+}
+.lock[hidden] { display: none; }
+.lock img { border-radius: 18px; }
+.lock h1 { font: 800 32px var(--display); margin: 0; }
+.lock p { margin: 0; color: var(--muted); max-width: 30ch; }
+.lock input { font: 18px var(--body); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: min(320px, 100%); }
+.lock button { font: 700 17px var(--body); padding: 12px; border-radius: 12px; border: 0; background: var(--ink); color: var(--surface); width: min(320px, 100%); }
+.lock .err { color: var(--ko); }
+body.locked .topbar, body.locked .sheet, body.locked .fab { visibility: hidden; }

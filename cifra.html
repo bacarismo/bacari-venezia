@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Bacarooooo · cifra la chiave</title>
+<style>
+  :root { --bg: #f3f1ea; --ink: #1d2422; --muted: #5d6763; --line: #dcd8cc; --surface: #fffdf7; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151a1a; --ink: #eef0ea; --muted: #a3ada8; --line: #34403d; --surface: #1e2524; color-scheme: dark; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-left)); display: grid; gap: 14px; }
+  h1 { margin: 0; font-size: 26px; }
+  p { margin: 0; color: var(--muted); }
+  label { display: grid; gap: 4px; font-weight: 700; }
+  input, textarea { font: 15px ui-monospace, monospace; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+  textarea { min-height: 120px; }
+  button { font: 700 16px system-ui; padding: 12px; border-radius: 10px; border: 0; background: var(--ink); color: var(--surface); cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cifra la chiave Google</h1>
+  <p>Tutto avviene in questo browser: chiave e password non vengono inviate da nessuna parte. Copia il risultato e mandalo a Claude.</p>
+  <label>Chiave API Google <input id="k" autocomplete="off" placeholder="AIza…"></label>
+  <label>Password per gli amici <input id="p" type="text" autocomplete="off" placeholder="almeno 8 caratteri"></label>
+  <button id="go">Cifra</button>
+  <label>Risultato da mandare <textarea id="out" readonly></textarea></label>
+</main>
+<script src="cripto.js"></script>
+<script>
+  document.getElementById("go").addEventListener("click", async () => {
+    const k = document.getElementById("k").value.trim(), p = document.getElementById("p").value;
+    const out = document.getElementById("out");
+    if (!k || p.length < 8) { out.value = "Inserisci la chiave e una password di almeno 8 caratteri."; return; }
+    const blob = await Cripto.cifra({ googleKey: k }, p);
+    out.value = JSON.stringify(blob);
+    out.select();
+  });
+</script>
+</body>
+</html>

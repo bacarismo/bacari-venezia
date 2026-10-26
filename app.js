@@ -393,7 +393,7 @@
 
   // ------------------------------------------------------------ Google: foto e scheda del locale
   // Per risparmiare: una sola ricerca per locale (solo campi id, nome, foto, link) e solo quando si apre la scheda.
-  const googleKey = () => (window.CONFIG && CONFIG.googleKey) || "";
+  const googleKey = () => state.googleKey || "";
   const gCache = new Map();
   function gPlace(l) {
     if (gCache.has(l.id)) return gCache.get(l.id);
@@ -919,8 +919,39 @@
     return false;
   }
 
+  // Password del gruppo: sblocca la chiave Google cifrata in config.js e si ricorda su questo dispositivo
+  async function sblocca() {
+    const blob = window.CONFIG && CONFIG.protetto;
+    if (!blob) return;
+    const memo = "accesso:" + blob.ct.slice(0, 16);
+    try {
+      const salvato = JSON.parse(localStorage.getItem(memo) || "null");
+      if (salvato) { state.googleKey = salvato.googleKey; return; }
+    } catch (e) { /* storage non disponibile */ }
+    const form = $("#lock"), pw = $("#pw"), err = $("#pwerr");
+    form.hidden = false;
+    document.body.classList.add("locked");
+    pw.focus();
+    await new Promise((ok) => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        err.hidden = true;
+        form.querySelector("button").disabled = true;
+        const dati = await Cripto.decifra(blob, pw.value);
+        form.querySelector("button").disabled = false;
+        if (!dati) { err.hidden = false; pw.select(); return; }
+        state.googleKey = dati.googleKey;
+        try { localStorage.setItem(memo, JSON.stringify(dati)); } catch (e2) { /* ignora */ }
+        ok();
+      });
+    });
+    form.hidden = true;
+    document.body.classList.remove("locked");
+  }
+
   async function init() {
     const hash = location.hash; // va letto subito: le viste riscrivono l'indirizzo
+    await sblocca();
     body.innerHTML = `<p class="empty">Carico la mappa…</p>`;
     const [loc, actv] = await Promise.allSettled([getJSON("data/locali.json"), getJSON("data/actv/index.json")]);
     if (loc.status === "fulfilled") state.locali = loc.value.locali;

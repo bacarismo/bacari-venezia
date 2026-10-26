@@ -1,3 +1,3 @@
-// Chiave Google (Places API New + Maps Embed API), limitata al dominio dell'app.
-// Vuota = niente foto né scheda Google.
-window.CONFIG = { googleKey: "" };
+// Accesso protetto: "protetto" contiene la chiave Google cifrata con la password del gruppo.
+// Si genera con la pagina cifra.html. null = app libera e senza foto Google.
+window.CONFIG = { protetto: null };
