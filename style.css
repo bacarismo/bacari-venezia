@@ -314,3 +314,4 @@ body.navigando .topbar { visibility: hidden; }
 .invito svg { width: 16px; height: 16px; vertical-align: -3px; fill: none; stroke: #2b7bd8; stroke-width: 2.2; }
 .invito .x { border: 0; background: none; color: var(--muted); font-size: 18px; padding: 2px 4px; }
 .navbar [hidden], .invito [hidden] { display: none; }
+.btn.pref.on { background: var(--actv); border-color: var(--actv); color: var(--actv-ink); }

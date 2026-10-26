@@ -364,6 +364,16 @@
     };
   }
 
+  // preferiti scelti sul telefono (id → true/false), sopra a quelli del file preferiti.json
+  let mieiPreferiti = {};
+  try { mieiPreferiti = JSON.parse(localStorage.getItem("preferiti") || "{}"); } catch (e) { /* ignora */ }
+  function setPreferito(l, si) {
+    l.preferito = si;
+    mieiPreferiti[l.id] = si;
+    try { localStorage.setItem("preferiti", JSON.stringify(mieiPreferiti)); } catch (e) { /* ignora */ }
+    drawLocali();
+  }
+
   function viewPreferiti() {
     return {
       hash: "",
@@ -372,7 +382,7 @@
         const ref = center();
         el.innerHTML = pref.length
           ? `<div class="list">${pref.map((l) => rowLocale(l, ref)).join("")}</div>`
-          : `<p class="empty">Ancora nessun preferito. Si aggiungono nel file <code>data/preferiti.json</code> del progetto, con le vostre note.</p>`;
+          : `<p class="empty">Nessun locale tra i preferiti</p>`;
       },
     };
   }
@@ -426,6 +436,7 @@
           ${notes.join("")}
           <div class="actions">
             <button class="btn" id="go">Portami qui</button>
+            <button class="btn pref${l.preferito ? " on" : ""}" id="pref" aria-pressed="${!!l.preferito}">${l.preferito ? "★ Nei preferiti" : "☆ Aggiungi a preferiti"}</button>
             <button class="btn" id="share">Condividi</button>
             ${isOsm ? `<a class="btn" target="_blank" rel="noopener" href="https://www.openstreetmap.org/${esc(l.id)}">Correggi su OSM</a>` : ""}
           </div>
@@ -435,6 +446,14 @@
         if (googleKey()) caricaGoogle(l, el);
         $("#share", el).addEventListener("click", () => share(l.nome, "l=" + encodeURIComponent(l.id)));
         $("#go", el).addEventListener("click", () => openPercorso(l));
+        $("#pref", el).addEventListener("click", (e) => {
+          setPreferito(l, !l.preferito);
+          const b = e.currentTarget;
+          b.classList.toggle("on", l.preferito);
+          b.setAttribute("aria-pressed", String(l.preferito));
+          b.textContent = l.preferito ? "★ Nei preferiti" : "☆ Aggiungi a preferiti";
+          toast(l.preferito ? "Aggiunto ai preferiti" : "Tolto dai preferiti");
+        });
       },
     });
   }
@@ -798,7 +817,7 @@
       render(el) {
         const draw = () => {
           layerLinea.clearLayers();
-          let h = `${backButton()}<h2>${dest === casa ? "" : "Come arrivo a "}${esc(dest.nome)}</h2>
+          let h = `${backButton()}<h2>${dest === casa ? "" : "Itinerario per "}${esc(dest.nome)}</h2>
             <p class="muted">Partenza: <b>${esc(etichetta)}</b> · <button class="linkbtn" id="chorig">${cerca === null ? "cambia" : "chiudi"}</button></p>
             ${cerca !== null ? htmlPartenza() : ""}
             <div class="daybar"><button data-m="piedi" aria-pressed="${modo === "piedi"}">A piedi</button><button data-m="vap" aria-pressed="${modo === "vap"}">Vaporetto + piedi</button></div>`;
@@ -965,8 +984,8 @@
           const p = piano.piedi;
           if (!p) return `<p class="empty">Non trovo un percorso a piedi: forse partenza e arrivo sono su isole diverse. Prova col vaporetto.</p>`;
           const passi = Percorsi.steps(p);
-          return `<p class="summary"><b>${minuti(piano.piediMin)}</b> a piedi · ${fmtDist(p.len)}${p.ponti ? ` · ${p.ponti} ${p.ponti === 1 ? "ponte" : "ponti"}` : ""}</p>
-            <button class="btn primary avvia" id="avvia">Avvia: la mappa ti segue</button>
+          return `<p class="summary"><b>${minuti(piano.piediMin)}</b> a piedi · ${fmtDist(p.len)}</p>
+            <button class="btn primary avvia" id="avvia">Avvia itinerario</button>
             <ol class="steps">${passi.map((s) => `<li class="${s.ponte ? "ponte" : s.verso}"><span>${esc(s.txt)}</span><span class="m">${fmtDist(s.len)}</span></li>`).join("")}
             <li class="arrivo"><span>Sei arrivato a ${esc(dest.nome)}</span><span></span></li></ol>`;
         };
@@ -976,7 +995,7 @@
           if (!ops.length) return `<p class="empty">${piano.piediMin != null && piano.piediMin <= 25 ? `Fai prima a piedi: ${minuti(piano.piediMin)}.` : "Nessun vaporetto diretto utile nei prossimi 90 minuti."}</p>`;
           const o = ops[Math.min(scelta, ops.length - 1)];
           const F = (g) => esc(state.actv.fermate[g].nome);
-          return `<button class="btn primary avvia" id="avvia">Avvia: la mappa ti segue</button><div class="list">${ops.map((x, i) => `<button class="row opt${i === scelta ? " on" : ""}" data-o="${i}">${lineaBadge(x.r)}<div><div class="t">${hhmm(x.parte)} da ${F(x.a)}</div><div class="s">scendi a ${F(x.b)} · arrivo ${hhmm(x.arrivo)} · ${x.walkA + x.walkB} min a piedi</div></div><div class="m"><b>${minuti(x.arrivo - nowMin())}</b></div></button>`).join("")}</div>
+          return `<button class="btn primary avvia" id="avvia">Avvia itinerario</button><div class="list">${ops.map((x, i) => `<button class="row opt${i === scelta ? " on" : ""}" data-o="${i}">${lineaBadge(x.r)}<div><div class="t">${hhmm(x.parte)} da ${F(x.a)}</div><div class="s">scendi a ${F(x.b)} · arrivo ${hhmm(x.arrivo)} · ${x.walkA + x.walkB} min a piedi</div></div><div class="m"><b>${minuti(x.arrivo - nowMin())}</b></div></button>`).join("")}</div>
             <ol class="steps">
               ${o.walkA > 1 ? `<li class="piedi"><span>Cammina fino al pontile ${F(o.a)}</span><span class="m">${o.walkA} min</span></li>` : ""}
               <li class="vap"><span>Prendi la linea ${esc(state.actv.linee[o.r].nome)} → ${esc(state.actv.capolinea[o.h])} alle <b>${hhmm(o.parte)}</b></span><span class="m">${o.tappe.length - 1} ferm.</span></li>
@@ -1139,7 +1158,10 @@
     await sblocca();
     body.innerHTML = `<p class="empty">Carico la mappa…</p>`;
     const [loc, actv] = await Promise.allSettled([getJSON("data/locali.json"), getJSON("data/actv/index.json")]);
-    if (loc.status === "fulfilled") state.locali = loc.value.locali;
+    if (loc.status === "fulfilled") {
+      state.locali = loc.value.locali;
+      for (const l of state.locali) if (l.id in mieiPreferiti) l.preferito = mieiPreferiti[l.id];
+    }
     if (actv.status === "fulfilled") state.actv = actv.value;
     drawLocali();
     drawFermate();
