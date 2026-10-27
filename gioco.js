@@ -218,7 +218,7 @@
   async function aggiornaMenu() {
     const box = $("#g-drawer .g-drawer-in");
     // senza profilo il menu offre solo l'ingresso
-    const voci = G.io ? [["classifica", "🏆", "Classifica"], ["punteggi", "📜", "Punteggi"], ["foto", "📸", "Foto"], ["regolamento", "📖", "Regolamento"], ["profilo", "👤", "Profilo"], ["tutorial", "❓", "Come si gioca"]] : [["entra", "👋", "Iscriviti / Accedi"]];
+    const voci = G.io ? [["classifica", "🏆", "Classifica"], ["punteggi", "📜", "Punteggi"], ["foto", "📸", "Feed"], ["regolamento", "📖", "Regolamento"], ["profilo", "👤", "Profilo"], ["tutorial", "❓", "Come si gioca"]] : [["entra", "👋", "Iscriviti / Accedi"]];
     if (isAdmin()) voci.push(["admin", "⚙️", "Admin"]);
     box.innerHTML = `
       <div class="g-me">${G.io ? `${avatar(G.io, "big")}<div><b>${esc(G.io.nome)}</b><span id="g-mieipunti">…</span></div>` : `<div><b>Bacaro Tour 2026</b><span>Crea il tuo profilo per giocare</span></div>`}</div>
@@ -878,7 +878,7 @@
       for (const f of foto) dati.set(f.id, { f, reaz: (r.data || []).filter((x) => x.foto_id === f.id), comm: (c.data || []).filter((x) => x.foto_id === f.id) });
     }
     return {
-      titolo: "Foto del gruppo",
+      titolo: "Feed",
       async render(el) {
         el.innerHTML = `<div class="g-feed" id="g-feed"></div><button class="btn" id="g-altre" hidden>Carica altre</button>`;
         feed = $("#g-feed", el);
