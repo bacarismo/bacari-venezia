@@ -725,10 +725,11 @@
     if (!p) return;
     const [pt, ft, cl] = await Promise.all([
       G.sb.from("punti").select("*").eq("profilo_id", id).order("created_at", { ascending: false }).limit(50),
-      G.sb.from("foto").select("id,thumb").eq("profilo_id", id).eq("nascosta", false).order("created_at", { ascending: false }).limit(9),
+      G.sb.from("foto").select("id,thumb").eq("profilo_id", id).eq("nascosta", false).order("created_at", { ascending: false }).limit(10),
       G.sb.from("classifica").select("id,totale,bacari").order("totale", { ascending: false }),
     ]);
-    const righe = pt.data || [], foto = ft.data || [], tutti = cl.data || [];
+    const righe = pt.data || [], tutti = cl.data || [];
+    const foto = (ft.data || []).slice(0, 9), altre = (ft.data || []).length > 9;
     const mia = tutti.find((r) => r.id === id);
     const tot = mia ? Number(mia.totale) : righe.filter((x) => !x.annullato).reduce((s, x) => s + Number(x.punti), 0);
     const pos = mia ? tutti.filter((r) => Number(r.totale) > tot).length + 1 : 0;
@@ -736,13 +737,15 @@
       <div class="g-giocatore">
       <div class="g-prof">${avatar(p, "big")}<div><h3>${esc(p.nome)}${p.ruolo === "admin" ? ' <span class="tag">admin</span>' : ""}</h3>${p.bio ? `<p>${esc(p.bio)}</p>` : ""}</div></div>
       <p class="g-tot">${num(tot)} punti${pos ? ` <small>· ${pos <= 3 ? ["🥇", "🥈", "🥉"][pos - 1] : pos + "°"} in classifica · ${mia.bacari} bacari</small>` : ""}</p>
-      ${foto.length ? `<div class="g-gfoto">${foto.map((f) => `<button class="g-thumb" data-foto="${f.id}"><img alt="" loading="lazy" src="${esc(fotoUrl(f.thumb))}"></button>`).join("")}</div>` : ""}
+      ${foto.length ? `<div class="g-gfoto">${foto.map((f) => `<button class="g-thumb" data-foto="${f.id}"><img alt="" loading="lazy" src="${esc(fotoUrl(f.thumb))}"></button>`).join("")}</div>
+        ${altre ? `<button class="btn g-tutte" data-foto="${foto[0].id}">Tutte le foto di ${esc(p.nome)} →</button>` : ""}` : ""}
       <div class="g-log">${righe.map(rigaLog).join("") || '<p class="empty">Nessun punto ancora.</p>'}</div>
       </div>`, (box) => {
       riempiMiniature(box);
       box.addEventListener("click", (e) => {
         const f = e.target.closest("[data-foto]");
-        if (f) { chiudiModale(); apriFoto(+f.dataset.foto); }
+        // si apre il feed con le sole foto del giocatore, da scorrere tutte
+        if (f) { chiudiModale(); apriPagina("foto", { id: +f.dataset.foto, chi: id }); }
       });
     });
   }
@@ -860,7 +863,9 @@
     </article>`;
   }
 
-  function pagFoto(soloId) {
+  // arg: id di una foto da cui partire, oppure { id, chi } per le sole foto di un giocatore
+  function pagFoto(arg) {
+    const soloId = arg && typeof arg === "object" ? arg.id : arg, chi = arg && arg.chi;
     let ultimo = null, feed;
     const dati = new Map(); // id → {f, reaz, comm}
     const disegna = (id) => {
@@ -878,7 +883,7 @@
       for (const f of foto) dati.set(f.id, { f, reaz: (r.data || []).filter((x) => x.foto_id === f.id), comm: (c.data || []).filter((x) => x.foto_id === f.id) });
     }
     return {
-      titolo: "Feed",
+      titolo: chi ? `Foto di ${nomeDi(chi)}` : "Feed",
       async render(el) {
         el.innerHTML = `<div class="g-feed" id="g-feed"></div><button class="btn" id="g-altre" hidden>Carica altre</button>`;
         feed = $("#g-feed", el);
@@ -889,6 +894,7 @@
         const pagina = async () => {
           let q = G.sb.from("foto").select("*").order("id", { ascending: false }).limit(10);
           if (ultimo) q = q.lt("id", ultimo);
+          if (chi) q = q.eq("profilo_id", chi);
           const { data, error } = await q;
           if (error) return errore(error);
           await arricchisci(data);
@@ -962,7 +968,7 @@
       },
       async live(tipo, x) {
         if (!feed) return;
-        if (tipo === "foto" && !dati.has(x.id)) {
+        if (tipo === "foto" && !dati.has(x.id) && (!chi || x.profilo_id === chi)) {
           await arricchisci([x]);
           feed.querySelector(".empty")?.remove();
           feed.insertAdjacentHTML("afterbegin", cardFoto(x, [], []));
@@ -974,7 +980,7 @@
         await arricchisci([d.f]);
         disegna(d.f.id);
       },
-      ricarica() { apriPagina("foto", soloId); },
+      ricarica() { apriPagina("foto", arg); },
     };
   }
   function apriFoto(id) { apriPagina("foto", id); }
