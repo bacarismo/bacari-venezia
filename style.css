@@ -371,7 +371,7 @@ body:not(.gioco) .gfab, body.navigando .gfab, body.locked .gfab, body.navigando 
   transform: translateX(-100%); transition: transform .2s ease; overflow-y: auto;
   display: flex; flex-direction: column;
 }
-.g-brand { margin-top: auto; padding-top: 18px; }
+.brand.g-brand { margin: auto 0 0; padding-top: 18px; }
 .g-drawer.open .g-drawer-in { transform: none; }
 .g-me { display: flex; gap: 12px; align-items: center; padding: 4px 4px 16px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 .g-me div { display: grid; }
