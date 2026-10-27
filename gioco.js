@@ -1295,12 +1295,30 @@
   // ------------------------------------------------------------ tutorial (primo accesso, poi dal menu)
   const tutorialVisto = (k) => { try { return localStorage.getItem("gioco-" + k) === "1"; } catch (e) { return false; } };
   const ricordaVisto = (k) => { try { localStorage.setItem("gioco-" + k, "1"); } catch (e) { /* va bene lo stesso */ } };
+  // pulsante e istruzioni della pagina "La tua posizione" del tutorial
+  function testoPosizione(geo) {
+    if (!navigator.geolocation) return '<p class="g-tut-nota">Questo browser non condivide la posizione.</p>';
+    if (geo === "ok") return '<p class="g-tut-ok">✓ Posizione attiva</p>';
+    const pulsante = `<button class="btn primary" id="g-tpos">📍 Attiva la posizione</button>`;
+    if (geo === "lenta") return `${pulsante}<p class="g-tut-nota">Non ti trovo: controlla che la Localizzazione del telefono sia accesa e riprova, meglio all'aperto.</p>`;
+    if (geo !== "no") return pulsante;
+    const come = suIphone
+      ? `<li>Impostazioni → Privacy e sicurezza → Localizzazione: accesa.</li>
+         <li>Più in basso, "Siti web di Safari" → "Mentre usi l'app".</li>
+         ${inHome() ? "<li>Chiudi del tutto l'app e riaprila dall'icona.</li>" : `<li>In Safari tocca "aA" accanto all'indirizzo → Impostazioni sito web → Posizione → Consenti, poi ricarica.</li>`}`
+      : `<li>Accendi la Localizzazione dalla tendina in alto del telefono.</li>
+         <li>In Chrome tocca l'icona accanto all'indirizzo (o, dall'app sulla Home, ⋮ → Info sito) → Autorizzazioni → Posizione → Consenti.</li>
+         <li>Se non c'è: Chrome → ⋮ → Impostazioni → Impostazioni sito → Posizione, e togli il blocco per questo sito. Poi ricarica.</li>`;
+    return `<div class="g-tut-aiuto"><p><b>La posizione è bloccata.</b> Per sbloccarla:</p><ol>${come}</ol></div>${pulsante}`;
+  }
+
   function apriTutorial() {
     chiudiMenu();
     if ($(".g-tutorial")) return;
     const pagine = [
       ["🗺️", "La mappa", "I puntini sono bacari, osterie e bar. Tocca un locale: orari, vaporetto più vicino e la freccia ➜ per arrivarci a piedi."],
-      ["📍", "Check-in", "Nella scheda del bacaro tocca \"Check-in da…\": +3 la prima volta in ogni bacaro, +1 se arrivi prima di tutto il gruppo."],
+      ["📍", "La tua posizione", "Serve per vederti sulla mappa, trovare i bacari vicini e la strada a piedi. Tocca il pulsante e scegli Consenti.", "pos"],
+      ["✅", "Check-in", "Nella scheda del bacaro tocca \"Check-in da…\": +3 la prima volta in ogni bacaro, +1 se arrivi prima di tutto il gruppo."],
       ["🍷", "Bevi e Mangia", "Con il + o con 🍷 Bevi / 🍢 Mangia nella scheda: scegli quanti con − +, poi Registra. Tre cicchetti = +1,5 in un colpo."],
       ["📸", "Foto e sfide", "Il tasto 📷 manda una foto nel feed del gruppo. Quando arrivano punti doppi o una sfida lampo compare un avviso: corri!"],
       ["🏆", "Classifica", "Dal menu ☰ trovi classifica, punteggi di tutti, foto e regolamento. Si gioca sulla fiducia: niente furbate."],
@@ -1310,15 +1328,21 @@
     tut.setAttribute("role", "dialog");
     tut.setAttribute("aria-label", "Come si gioca");
     document.body.append(tut);
-    let i = 0;
+    let i = 0, geo = "?";
+    // stato del permesso senza chiedere nulla (Safari vecchi non lo dicono: si scopre toccando il pulsante)
+    navigator.permissions?.query({ name: "geolocation" }).then((r) => {
+      if (r.state === "granted") geo = "ok"; else if (r.state === "denied") geo = "no";
+      if (pagine[i][3] === "pos") disegna();
+    }).catch(() => {});
     const fine = () => { ricordaVisto("tutorial"); tut.remove(); ricollegaPush(); };
     const disegna = () => {
-      const [e, t, x] = pagine[i];
+      const [e, t, x, extra] = pagine[i];
       const ultima = i === pagine.length - 1;
       const st = statoPush();
       tut.innerHTML = `
         <div class="g-tut-top"><button class="g-tut-salta" data-fine>${ultima ? "Chiudi" : "Salta"}</button></div>
         <div class="g-tut-corpo"><div class="g-tut-emoji" aria-hidden="true">${e}</div><h2>${t}</h2><p>${x}</p>
+          ${extra === "pos" ? testoPosizione(geo) : ""}
           ${ultima && st === "chiedi" ? `<button class="btn primary" id="g-tpush">🔔 Attiva le notifiche</button><p class="g-tut-nota">Per sapere subito di punti doppi e sfide lampo.</p>` : ""}
           ${ultima && st === "home" ? `<p class="g-tut-nota">🔔 ${testoPush()}</p>` : ""}
         </div>
@@ -1331,6 +1355,15 @@
         i = Math.max(0, Math.min(pagine.length - 1, i + d));
         disegna();
       }));
+      $("#g-tpos", tut)?.addEventListener("click", (ev) => {
+        ev.target.disabled = true;
+        ev.target.textContent = "Cerco la posizione…";
+        navigator.geolocation.getCurrentPosition(() => {
+          geo = "ok";
+          $("#locate")?.click(); // la mappa comincia a seguirti come col pulsante 📍
+          disegna();
+        }, (err) => { geo = err.code === 1 ? "no" : "lenta"; disegna(); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+      });
       $("#g-tpush", tut)?.addEventListener("click", async (ev) => {
         ev.target.disabled = true;
         try { await attivaPush(); toast("Notifiche attive"); disegna(); } catch (err) { errore(err); ev.target.disabled = false; }

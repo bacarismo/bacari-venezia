@@ -571,6 +571,10 @@ button, .btn, a, input, select, label { touch-action: manipulation; }
 .g-tut-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 420px; width: 100%; margin: 0 auto; }
 .g-tut-nav .btn { justify-content: center; min-height: 48px; }
 .g-tut-nota { font-size: 14px !important; }
+.g-tut-ok { font-weight: 800; color: var(--ombra); }
+.g-tut-aiuto { text-align: left; font-size: 14px; background: var(--surface, rgba(127,127,127,.1)); border-radius: 12px; padding: 10px 14px; margin: 4px 0 12px; }
+.g-tut-aiuto p { margin: 0 0 4px; font-size: 14px !important; }
+.g-tut-aiuto ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
 .searchbox .logo { width: 26px; height: 26px; flex: none; border-radius: 7px; }
 .brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 18px 0 6px; color: var(--muted); font: 800 15px var(--display); }
 .brand img { border-radius: 8px; }
