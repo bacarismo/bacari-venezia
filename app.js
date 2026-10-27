@@ -434,8 +434,8 @@
           <div class="kind"><span class="tag ${l.tipo}">${TIPI[l.tipo]}</span>${l.preferito ? '<span class="tag star">★ Preferito</span>' : ""}${stato}</div>
           ${googleKey() ? '<div id="gfoto" class="gfoto" aria-live="polite"></div>' : ""}
           ${notes.join("")}
-          <div class="actions">
-            <button class="btn pref${l.preferito ? " on" : ""}" id="pref" aria-pressed="${!!l.preferito}">${l.preferito ? "★ Nei preferiti" : "☆ Aggiungi a preferiti"}</button>
+          <div class="actions due">
+            <button class="btn pref${l.preferito ? " on" : ""}" id="pref" aria-pressed="${!!l.preferito}">${l.preferito ? "★ Nei preferiti" : "☆ Preferiti"}</button>
             <button class="btn" id="share">Condividi</button>
           </div>
           ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>` : `<p class="muted">Di questo locale OpenStreetMap non ha orari né contatti.</p>`}
@@ -450,7 +450,7 @@
           const b = e.currentTarget;
           b.classList.toggle("on", l.preferito);
           b.setAttribute("aria-pressed", String(l.preferito));
-          b.textContent = l.preferito ? "★ Nei preferiti" : "☆ Aggiungi a preferiti";
+          b.textContent = l.preferito ? "★ Nei preferiti" : "☆ Preferiti";
           toast(l.preferito ? "Aggiunto ai preferiti" : "Tolto dai preferiti");
         });
       },
