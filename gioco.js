@@ -1227,7 +1227,7 @@
   // spiega cosa manca su Supabase invece di un errore generico
   async function erroreFunzione(e) {
     const r = e && e.context;
-    if (!r || typeof r.status !== "number") return new Error("Funzione push non raggiungibile: è stata creata su Supabase col nome push? (" + ((e && e.message) || "rete") + ")");
+    if (!r || typeof r.status !== "number") return new Error("Funzione push non raggiungibile: controlla che su Supabase esista la funzione push e che Verify JWT sia disattivato");
     const corpo = await r.clone().text().catch(() => "");
     if (r.status === 404) return new Error("Su Supabase non c'è la funzione push (punto 3 della guida)");
     if (r.status === 401) return new Error("Supabase rifiuta la chiamata (401): nella funzione push disattiva Verify JWT (guida, ultima nota)");
