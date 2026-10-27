@@ -878,24 +878,29 @@
       for (const f of foto) dati.set(f.id, { f, reaz: (r.data || []).filter((x) => x.foto_id === f.id), comm: (c.data || []).filter((x) => x.foto_id === f.id) });
     }
     return {
-      titolo: soloId ? "Foto" : "Foto del gruppo",
+      titolo: "Foto del gruppo",
       async render(el) {
         el.innerHTML = `<div class="g-feed" id="g-feed"></div><button class="btn" id="g-altre" hidden>Carica altre</button>`;
         feed = $("#g-feed", el);
         const altre = $("#g-altre", el);
-        const carica = async () => {
+        let inCorso = null, finite = false;
+        // una pagina alla volta: chi chiama durante un caricamento aspetta quello in corso
+        const carica = () => finite ? Promise.resolve() : inCorso || (inCorso = pagina().finally(() => { inCorso = null; }));
+        const pagina = async () => {
           let q = G.sb.from("foto").select("*").order("id", { ascending: false }).limit(10);
-          if (soloId) q = q.eq("id", soloId);
-          else if (ultimo) q = q.lt("id", ultimo);
+          if (ultimo) q = q.lt("id", ultimo);
           const { data, error } = await q;
           if (error) return errore(error);
           await arricchisci(data);
           if (!ultimo && !data.length) feed.innerHTML = '<p class="empty">Ancora nessuna foto. Tocca la fotocamera sulla mappa.</p>';
           feed.insertAdjacentHTML("beforeend", data.map((f) => { const d = dati.get(f.id); return cardFoto(f, d.reaz, d.comm); }).join(""));
           if (data.length) ultimo = data[data.length - 1].id;
-          altre.hidden = !!soloId || data.length < 10;
+          finite = data.length < 10;
+          altre.hidden = finite;
         };
         altre.addEventListener("click", carica);
+        // scorrimento infinito: quando il fondo si avvicina arrivano le foto successive (il pulsante resta come riserva)
+        if ("IntersectionObserver" in window) new IntersectionObserver((v) => { if (v.some((x) => x.isIntersecting)) carica(); }, { rootMargin: "800px 0px" }).observe(altre);
         feed.addEventListener("click", async (e) => {
           const card = e.target.closest("[data-f]");
           if (!card) return;
@@ -949,10 +954,15 @@
           disegna(id);
         });
         await carica();
+        // aperta da una miniatura: si carica il feed fino a quella foto e ci si posiziona lì
+        if (soloId) {
+          for (let i = 0; i < 20 && !finite && !feed.querySelector(`[data-f="${soloId}"]`); i++) await carica();
+          feed.querySelector(`[data-f="${soloId}"]`)?.scrollIntoView({ block: "start" });
+        }
       },
       async live(tipo, x) {
         if (!feed) return;
-        if (tipo === "foto" && !soloId && !dati.has(x.id)) {
+        if (tipo === "foto" && !dati.has(x.id)) {
           await arricchisci([x]);
           feed.querySelector(".empty")?.remove();
           feed.insertAdjacentHTML("afterbegin", cardFoto(x, [], []));
