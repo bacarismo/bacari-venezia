@@ -543,3 +543,20 @@ button, .btn, a, input, select, label { touch-action: manipulation; }
 /* scheda locale: Preferiti e Condividi in griglia come Bevi e Mangia */
 .actions.due { display: grid; grid-template-columns: 1fr 1fr; }
 .actions.due .btn, .g-scorc .btn { justify-content: center; min-width: 0; min-height: 46px; }
+
+/* tutorial al primo accesso */
+.g-tutorial { position: fixed; inset: 0; z-index: 2700; background: var(--bg); display: flex; flex-direction: column;
+  padding: calc(var(--safe-t) + 16px) max(20px, var(--safe-l)) calc(var(--safe-b) + 20px) max(20px, var(--safe-r)); touch-action: pan-x pan-y; }
+.g-tut-top { display: flex; justify-content: flex-end; }
+.g-tut-salta { border: 0; background: none; color: var(--muted); font: 700 16px var(--body); padding: 8px; }
+.g-tut-corpo { flex: 1; display: grid; align-content: center; justify-items: center; text-align: center; gap: 14px; max-width: 420px; margin: 0 auto; }
+.g-tut-emoji { font-size: 72px; line-height: 1; }
+.g-tut-corpo h2 { font: 800 28px var(--display); margin: 0; }
+.g-tut-corpo p { margin: 0; font-size: 17px; line-height: 1.45; color: var(--muted); }
+.g-tut-corpo .btn { justify-content: center; width: 100%; min-height: 48px; }
+.g-tut-punti { display: flex; justify-content: center; gap: 8px; margin: 12px 0; }
+.g-tut-punti i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.g-tut-punti i.on { background: var(--ombra); width: 22px; border-radius: 4px; }
+.g-tut-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 420px; width: 100%; margin: 0 auto; }
+.g-tut-nav .btn { justify-content: center; min-height: 48px; }
+.g-tut-nota { font-size: 14px !important; }

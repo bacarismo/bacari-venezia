@@ -43,7 +43,7 @@ jobs:
       - name: Prepara il sito
         run: |
           mkdir _site
-          cp -r index.html style.css app.js gioco.js orari.js routing.js config.js cripto.js cifra.html sw.js manifest.webmanifest icons data _site/
+          cp -r index.html style.css app.js gioco.js orari.js routing.js config.js cripto.js cifra.html vapid.html sw.js manifest.webmanifest icons data _site/
           V=$(date +%Y%m%d%H%M)
           sed -i "s/const VERSION = \"v1\"/const VERSION = \"$V\"/" _site/sw.js
           sed -i "s/__V__/$V/g" _site/index.html

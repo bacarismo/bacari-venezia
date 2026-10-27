@@ -321,6 +321,35 @@ begin
   return query select profilo_id from pin;
 end $$;
 
+-- ------------------------------------------------------------ notifiche push
+-- un telefono = un'iscrizione; si leggono solo via funzioni (la funzione "push" chiede admin_iscrizioni)
+create table if not exists public.push_iscrizioni (
+  endpoint text primary key,
+  profilo_id uuid not null references public.profili on delete cascade,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+create or replace function public.salva_iscrizione(p_endpoint text, p_p256dh text, p_auth text) returns void
+language plpgsql security definer set search_path = public as $$
+declare me uuid := mio_profilo();
+begin
+  if me is null then raise exception 'Prima crea il tuo profilo'; end if;
+  if left(coalesce(p_endpoint, ''), 8) <> 'https://' then raise exception 'Iscrizione non valida'; end if;
+  insert into push_iscrizioni (endpoint, profilo_id, p256dh, auth) values (p_endpoint, me, p_p256dh, p_auth)
+    on conflict (endpoint) do update set profilo_id = me, p256dh = excluded.p256dh, auth = excluded.auth;
+end $$;
+create or replace function public.togli_iscrizione(p_endpoint text) returns void
+language sql security definer set search_path = public as $$
+  delete from push_iscrizioni where endpoint = p_endpoint and (profilo_id = mio_profilo() or sono_admin());
+$$;
+create or replace function public.admin_iscrizioni() returns table (endpoint text, p256dh text, auth text)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not sono_admin() then raise exception 'Solo admin'; end if;
+  return query select i.endpoint, i.p256dh, i.auth from push_iscrizioni i;
+end $$;
+
 -- ------------------------------------------------------------ permessi
 alter table public.profili enable row level security;
 alter table public.pin enable row level security;
@@ -331,17 +360,20 @@ alter table public.reazioni enable row level security;
 alter table public.commenti enable row level security;
 alter table public.punti enable row level security;
 alter table public.impostazioni enable row level security;
+alter table public.push_iscrizioni enable row level security;
 
 -- niente per chi non ha una sessione; dentro l'app tutti vedono tutto (classifica e log sono pubblici)
-revoke all on public.profili, public.pin, public.regole, public.avvisi, public.foto, public.reazioni, public.commenti, public.punti, public.classifica, public.impostazioni from anon;
-revoke all on public.pin from authenticated;
+revoke all on public.profili, public.pin, public.regole, public.avvisi, public.foto, public.reazioni, public.commenti, public.punti, public.classifica, public.impostazioni, public.push_iscrizioni from anon;
+revoke all on public.pin, public.push_iscrizioni from authenticated;
 revoke insert, update, delete on public.profili, public.punti, public.regole, public.impostazioni from authenticated;
 grant update (nome, bio, foto) on public.profili to authenticated;
 grant update (punti, nota, annullato) on public.punti to authenticated;
 revoke execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin,
-  public.admin_crea_profilo, public.admin_elimina_profilo, public.admin_con_pin from anon, public;
+  public.admin_crea_profilo, public.admin_elimina_profilo, public.admin_con_pin,
+  public.salva_iscrizione, public.togli_iscrizione, public.admin_iscrizioni from anon, public;
 grant execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin,
-  public.admin_crea_profilo, public.admin_elimina_profilo, public.admin_con_pin to authenticated;
+  public.admin_crea_profilo, public.admin_elimina_profilo, public.admin_con_pin,
+  public.salva_iscrizione, public.togli_iscrizione, public.admin_iscrizioni to authenticated;
 
 drop policy if exists "leggi" on public.profili;
 create policy "leggi" on public.profili for select to authenticated using (true);
