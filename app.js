@@ -384,6 +384,7 @@
         el.innerHTML = pref.length
           ? `<div class="list">${pref.map((l) => rowLocale(l, ref)).join("")}</div>`
           : `<p class="empty">Nessun locale tra i preferiti</p>`;
+        el.innerHTML += foot();
       },
     };
   }
@@ -395,7 +396,8 @@
       const g = state.actv.generato ? new Date(state.actv.generato) : null;
       parts.push(`orari ACTV programmati${g ? ", aggiornati il " + g.toLocaleDateString("it-IT") : ""}`);
     }
-    return `<p class="foot">${parts.join(" · ")}. Gli orari possono cambiare per scioperi, acqua alta o lavori: in caso di dubbio controlla al pontile.</p>`;
+    return `<p class="foot">${parts.join(" · ")}. Gli orari possono cambiare per scioperi, acqua alta o lavori: in caso di dubbio controlla al pontile.</p>
+      <div class="brand"><img src="icons/sangria.svg" alt="" width="28" height="28"><span>Bacaro Tour 2026</span></div>`;
   }
 
   // ------------------------------------------------------------ scheda locale
