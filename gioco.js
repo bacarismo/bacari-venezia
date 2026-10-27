@@ -1052,13 +1052,27 @@
           <form class="g-form" data-f="correzione"><select name="chi">${opzGiocatori()}</select>
             <div class="g-riga2"><label>Punti (anche negativi) <input name="punti" type="number" step="0.5" value="1" required></label></div>
             <input name="nota" maxlength="140" placeholder="Motivo"><button class="btn primary">Assegna</button></form>
-          <p class="muted">Per annullare o cambiare un singolo punteggio: menu → Punteggi, ogni riga ha Modifica e Annulla. Foto e commenti si moderano dal feed Foto.</p>`;
+          <p class="muted">Per annullare o cambiare un singolo punteggio: menu → Punteggi, ogni riga ha Modifica e Annulla. Foto e commenti si moderano dal feed Foto.</p>
+          <div class="section-t">🧹 Azzera il gioco</div>
+          <div class="g-form g-pericolo"><p class="muted">Cancella per tutti punti, foto (con reazioni e commenti) e avvisi. Restano profili, regole e notifiche. Non si può annullare. Per confermare scrivi AZZERA.</p>
+            <input id="g-reset-ok" autocomplete="off" autocapitalize="characters" placeholder="AZZERA"><button class="btn" id="g-reset" disabled>Azzera il gioco</button></div>`;
         $("#g-fotosfide", el).addEventListener("change", async (e) => {
           const v = e.target.checked;
           const { data, error } = await G.sb.from("impostazioni").update({ valore: v }).eq("chiave", "foto_sfide").select();
           if (error || !data || !data.length) { e.target.checked = !v; return errore(error || new Error("Rilancia schema.sql in Supabase per attivare questa opzione")); }
           G.imp.foto_sfide = v;
           toast(v ? "Foto obbligatoria nelle sfide" : "Foto facoltativa anche nelle sfide");
+        });
+        $("#g-reset-ok", el).addEventListener("input", (e) => { $("#g-reset", el).disabled = e.target.value.trim().toUpperCase() !== "AZZERA"; });
+        $("#g-reset", el).addEventListener("click", async (e) => {
+          e.target.disabled = true;
+          const { data, error } = await G.sb.rpc("admin_reset_gioco");
+          if (error) { e.target.disabled = false; return errore(/admin_reset_gioco/.test(error.message) ? new Error("Rilancia schema.sql in Supabase per attivare l'azzeramento") : error); }
+          // i file si tolgono a blocchi; se qualcuno non parte resta solo spazio occupato, l'app non lo mostra più
+          const file = (data || []).map((r) => r.file).filter(Boolean);
+          for (let i = 0; i < file.length; i += 100) await G.sb.storage.from("foto").remove(file.slice(i, i + 100)).catch(() => {});
+          toast("Gioco azzerato");
+          setTimeout(() => location.reload(), 1200);
         });
         el.addEventListener("click", async (e) => {
           const b = e.target.closest("[data-stop]");

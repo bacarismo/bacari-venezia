@@ -350,6 +350,18 @@ begin
   return query select i.endpoint, i.p256dh, i.auth from push_iscrizioni i;
 end $$;
 
+-- azzera il gioco prima del tour vero (pulsante in Admin → Gioco); tiene profili, regole, impostazioni, notifiche.
+-- Restituisce i file delle foto, che l'app poi toglie dallo Storage. "where true": Supabase blocca i delete senza where.
+create or replace function public.admin_reset_gioco() returns table (file text)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not sono_admin() then raise exception 'Solo admin'; end if;
+  delete from punti where true;
+  delete from avvisi where true;
+  return query with via as (delete from foto where true returning path, thumb)
+    select unnest(array[via.path, via.thumb]) from via;
+end $$;
+
 -- ------------------------------------------------------------ permessi
 alter table public.profili enable row level security;
 alter table public.pin enable row level security;
@@ -370,10 +382,10 @@ grant update (nome, bio, foto) on public.profili to authenticated;
 grant update (punti, nota, annullato) on public.punti to authenticated;
 revoke execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin,
   public.admin_crea_profilo, public.admin_elimina_profilo, public.admin_con_pin,
-  public.salva_iscrizione, public.togli_iscrizione, public.admin_iscrizioni from anon, public;
+  public.salva_iscrizione, public.togli_iscrizione, public.admin_iscrizioni, public.admin_reset_gioco from anon, public;
 grant execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin,
   public.admin_crea_profilo, public.admin_elimina_profilo, public.admin_con_pin,
-  public.salva_iscrizione, public.togli_iscrizione, public.admin_iscrizioni to authenticated;
+  public.salva_iscrizione, public.togli_iscrizione, public.admin_iscrizioni, public.admin_reset_gioco to authenticated;
 
 drop policy if exists "leggi" on public.profili;
 create policy "leggi" on public.profili for select to authenticated using (true);
