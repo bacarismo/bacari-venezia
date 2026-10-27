@@ -20,7 +20,7 @@
   const toast = (m) => App.toast(m);
   const isAdmin = () => !!(G.io && G.io.ruolo === "admin");
   const fotoUrl = (path) => path ? `${cfg.url}/storage/v1/object/public/foto/${path.split("/").map(encodeURIComponent).join("/")}` : "";
-  const errore = (e) => toast((e && (e.message || e.error_description)) || "Qualcosa è andato storto, riprova");
+  const errore = (e) => toast(spiegaErrore(e));
 
   function quando(d) {
     const s = (Date.now() - new Date(d)) / 1000;
