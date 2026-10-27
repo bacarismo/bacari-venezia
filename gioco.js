@@ -1209,7 +1209,8 @@
     if (st !== "chiedi" && st !== "si") throw new Error(testoPush());
     if ((await Notification.requestPermission()) !== "granted") throw new Error("Notifiche non permesse");
     const { data, error } = await G.sb.functions.invoke("push", { body: { azione: "chiave" } });
-    if (error || !data || !data.chiave) throw new Error("Le notifiche non sono ancora pronte sul server");
+    if (error) throw await erroreFunzione(error);
+    if (!data || !data.chiave) throw new Error("La funzione push non ha risposto con la chiave");
     const chiave = daB64(data.chiave);
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
@@ -1223,9 +1224,19 @@
   }
   // se il permesso c'è già, l'iscrizione segue il profilo attuale (cambio profilo, chiave nuova)
   function ricollegaPush() { if (G.io && statoPush() === "si") attivaPush().catch((e) => console.warn("push", e)); }
+  // spiega cosa manca su Supabase invece di un errore generico
+  async function erroreFunzione(e) {
+    const r = e && e.context;
+    if (!r || typeof r.status !== "number") return new Error("Funzione push non raggiungibile: è stata creata su Supabase col nome push? (" + ((e && e.message) || "rete") + ")");
+    const corpo = await r.clone().text().catch(() => "");
+    if (r.status === 404) return new Error("Su Supabase non c'è la funzione push (punto 3 della guida)");
+    if (r.status === 401) return new Error("Supabase rifiuta la chiamata (401): nella funzione push disattiva Verify JWT (guida, ultima nota)");
+    if (/VAPID/.test(corpo)) return new Error("Mancano i segreti VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY (punto 4 della guida)");
+    return new Error(`Funzione push: errore ${r.status} ${corpo.slice(0, 160)}`);
+  }
   async function inviaPush(titolo, testo, tag) {
     const { data, error } = await G.sb.functions.invoke("push", { body: { azione: "invia", titolo, testo, tag } });
-    if (error) throw error;
+    if (error) throw await erroreFunzione(error);
     return data;
   }
 
