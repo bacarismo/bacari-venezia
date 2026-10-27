@@ -222,7 +222,8 @@
     if (isAdmin()) voci.push(["admin", "⚙️", "Admin"]);
     box.innerHTML = `
       <div class="g-me">${G.io ? `${avatar(G.io, "big")}<div><b>${esc(G.io.nome)}</b><span id="g-mieipunti">…</span></div>` : `<div><b>Bacaro Tour 2026</b><span>Crea il tuo profilo per giocare</span></div>`}</div>
-      <nav>${voci.map(([p, e, t]) => `<button data-p="${p}"><span>${e}</span>${t}</button>`).join("")}</nav>`;
+      <nav>${voci.map(([p, e, t]) => `<button data-p="${p}"><span>${e}</span>${t}</button>`).join("")}</nav>
+      <div class="brand g-brand"><img src="icons/sangria.svg" alt="" width="28" height="28"><span>Bacaro Tour 2026</span></div>`;
     const t = await mieiPunti().catch(() => null);
     const el = $("#g-mieipunti");
     if (el && t != null) el.textContent = `${num(t)} punti`;
