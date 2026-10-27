@@ -108,9 +108,6 @@ insert into public.regole (codice, categoria, nome, emoji, punti, richiede_foto,
   ('correzione',      'Admin',   'Correzione dell''admin',        '✏️', 0,   false, false, 90)
 on conflict (codice) do update set categoria = excluded.categoria, nome = excluded.nome, emoji = excluded.emoji,
   punti = excluded.punti, richiede_foto = excluded.richiede_foto, segnabile = excluded.segnabile, ordine = excluded.ordine;
--- niente più punti per i sestieri (il sestiere resta solo come indicazione sul check-in)
-delete from public.punti where codice in ('sestiere', 'badge_sestieri');
-delete from public.regole where codice in ('sestiere', 'badge_sestieri');
 
 -- ------------------------------------------------------------ impostazioni del gioco (le cambia l'admin)
 create table if not exists public.impostazioni (
@@ -175,7 +172,12 @@ create table if not exists public.punti (
   annullato boolean not null default false,
   created_at timestamptz not null default now()
 );
+-- quantità: 3 cicchetti in un colpo solo = una riga da 3 × 0,5
+alter table public.punti add column if not exists qta int not null default 1 check (qta between 1 and 10);
 create index if not exists punti_profilo on public.punti (profilo_id) where not annullato;
+-- niente più punti per i sestieri (il sestiere resta solo come indicazione sul check-in)
+delete from public.punti where codice in ('sestiere', 'badge_sestieri');
+delete from public.regole where codice in ('sestiere', 'badge_sestieri');
 create index if not exists punti_data on public.punti (created_at desc);
 
 create or replace view public.classifica with (security_invoker = true) as
@@ -188,10 +190,12 @@ create or replace view public.classifica with (security_invoker = true) as
 -- Segna punti. I punti li calcola il server dal regolamento (niente furbate dal telefono):
 -- punti doppi se c'è un evento attivo, check-in una volta per bacaro, bonus e badge automatici.
 -- L'admin può segnare per altri (p_per) e con punti a scelta (p_punti, anche negativi).
+-- p_qta (1-10) solo per Bevi e Mangia: i punti si moltiplicano per la quantità.
+drop function if exists public.segna(text, text, text, text, text, bigint, bigint, uuid, numeric);
 create or replace function public.segna(
   p_codice text, p_nota text default '', p_bacaro_id text default null, p_bacaro_nome text default null,
   p_sestiere text default null, p_foto bigint default null, p_avviso bigint default null,
-  p_per uuid default null, p_punti numeric default null
+  p_per uuid default null, p_punti numeric default null, p_qta int default 1
 ) returns bigint
 language plpgsql security definer set search_path = public as $$
 declare
@@ -221,6 +225,8 @@ begin
     raise exception 'Per questa serve una foto';
   end if;
   if p_sestiere is not null and not (p_sestiere = any (sestieri)) then p_sestiere := null; end if;
+  if p_qta is null or p_qta < 1 or p_qta > 10 then raise exception 'Quantità da 1 a 10'; end if;
+  if r.categoria not in ('Bevi', 'Mangia') then p_qta := 1; end if;
 
   base := r.punti;
   if p_codice = 'sfida_lampo' then
@@ -246,8 +252,8 @@ begin
     m := 2;
   end if;
 
-  insert into punti (profilo_id, codice, punti, molt, nota, bacaro_id, bacaro_nome, sestiere, foto_id, avviso_id, creato_da)
-    values (chi, p_codice, base * m, m, left(coalesce(p_nota, ''), 140), p_bacaro_id, left(p_bacaro_nome, 80), p_sestiere, p_foto, p_avviso, me)
+  insert into punti (profilo_id, codice, punti, molt, qta, nota, bacaro_id, bacaro_nome, sestiere, foto_id, avviso_id, creato_da)
+    values (chi, p_codice, base * p_qta * m, m, p_qta, left(coalesce(p_nota, ''), 140), p_bacaro_id, left(p_bacaro_nome, 80), p_sestiere, p_foto, p_avviso, me)
     returning id into nuovo;
 
   if p_codice = 'checkin' then
@@ -261,7 +267,7 @@ begin
     end if;
   end if;
   if p_codice like 'cicchetto%'
-     and (select count(*) from punti where profilo_id = chi and codice like 'cicchetto%' and not annullato) >= 10
+     and (select sum(qta) from punti where profilo_id = chi and codice like 'cicchetto%' and not annullato) >= 10
      and not exists (select 1 from punti where profilo_id = chi and codice = 'badge_cicchetto' and not annullato) then
     insert into punti (profilo_id, codice, punti, creato_da) values (chi, 'badge_cicchetto', 5, me);
   end if;
