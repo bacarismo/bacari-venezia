@@ -429,17 +429,14 @@
         if (l.descrizione && !l.nota) notes.push(`<div class="note"><b>Descrizione</b>${esc(l.descrizione)}</div>`);
 
         const near = vicine(l, 2);
-        const isOsm = /^(node|way|relation)\//.test(l.id);
         el.innerHTML = `${backButton()}
-          <h2>${esc(l.nome)}</h2>
+          <h2 class="nome-locale"><span>${esc(l.nome)}</span><button class="vai" id="go" aria-label="Portami qui" title="Portami qui"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M21.7 11.3l-9-9a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 0 1 1-1h5V7.5l3.5 3.5L14 14.5z"/></svg></button></h2>
           <div class="kind"><span class="tag ${l.tipo}">${TIPI[l.tipo]}</span>${l.preferito ? '<span class="tag star">★ Preferito</span>' : ""}${stato}</div>
           ${googleKey() ? '<div id="gfoto" class="gfoto" aria-live="polite"></div>' : ""}
           ${notes.join("")}
           <div class="actions">
-            <button class="btn" id="go">Portami qui</button>
             <button class="btn pref${l.preferito ? " on" : ""}" id="pref" aria-pressed="${!!l.preferito}">${l.preferito ? "★ Nei preferiti" : "☆ Aggiungi a preferiti"}</button>
             <button class="btn" id="share">Condividi</button>
-            ${isOsm ? `<a class="btn" target="_blank" rel="noopener" href="https://www.openstreetmap.org/${esc(l.id)}">Correggi su OSM</a>` : ""}
           </div>
           ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>` : `<p class="muted">Di questo locale OpenStreetMap non ha orari né contatti.</p>`}
           ${near.length ? `<div class="section-t">Vaporetto più vicino</div><div class="list">${near.map((i) => rowFermata(i, l)).join("")}</div>` : ""}

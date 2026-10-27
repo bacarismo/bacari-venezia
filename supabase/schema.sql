@@ -98,18 +98,27 @@ insert into public.regole (codice, categoria, nome, emoji, punti, richiede_foto,
   ('cicchetto_veg',   'Mangia',  'Cicchetto vegetariano',         '🥦', 0.5, false, true,  21),
   ('checkin',         'Esplora', 'Check-in in un bacaro nuovo',   '📍', 3,   false, true,  30),
   ('primo',           'Esplora', 'Primo del gruppo in quel bacaro','🥇', 1,  false, false, 31),
-  ('sestiere',        'Esplora', 'Sestiere nuovo',                '🗺️', 2,   false, false, 32),
   ('vaporetto',       'Esplora', 'Giro in vaporetto',             '⛴️', 1,   false, true,  33),
-  ('canta',           'Sfide',   'Canta una canzone',             '🎤', 3,   true,  true,  40),
-  ('balla',           'Sfide',   'Fai un ballo',                  '💃', 3,   true,  true,  41),
-  ('personaggio',     'Sfide',   'Foto con un personaggio',       '🎭', 3,   true,  true,  42),
-  ('sfida_lampo',     'Admin',   'Sfida lampo',                   '⚡', 0,   true,  true,  50),
+  ('canta',           'Sfide',   'Canta una canzone',             '🎤', 3,   false,  true,  40),
+  ('balla',           'Sfide',   'Fai un ballo',                  '💃', 3,   false,  true,  41),
+  ('personaggio',     'Sfide',   'Foto con un personaggio',       '🎭', 3,   false,  true,  42),
+  ('sfida_lampo',     'Admin',   'Sfida lampo',                   '⚡', 0,   false,  true,  50),
   ('badge_bacari',    'Badge',   'Badge: 10 bacari',              '🏅', 5,   false, false, 60),
-  ('badge_sestieri',  'Badge',   'Badge: tutti i sestieri',       '🏅', 5,   false, false, 61),
   ('badge_cicchetto', 'Badge',   'Badge: re del cicchetto (10 cicchetti)', '👑', 5, false, false, 62),
   ('correzione',      'Admin',   'Correzione dell''admin',        '✏️', 0,   false, false, 90)
 on conflict (codice) do update set categoria = excluded.categoria, nome = excluded.nome, emoji = excluded.emoji,
   punti = excluded.punti, richiede_foto = excluded.richiede_foto, segnabile = excluded.segnabile, ordine = excluded.ordine;
+-- niente più punti per i sestieri (il sestiere resta solo come indicazione sul check-in)
+delete from public.punti where codice in ('sestiere', 'badge_sestieri');
+delete from public.regole where codice in ('sestiere', 'badge_sestieri');
+
+-- ------------------------------------------------------------ impostazioni del gioco (le cambia l'admin)
+create table if not exists public.impostazioni (
+  chiave text primary key,
+  valore boolean not null
+);
+-- foto_sfide: se true le sfide (canta, balla, personaggio, sfida lampo) vogliono la foto
+insert into public.impostazioni (chiave, valore) values ('foto_sfide', false) on conflict (chiave) do nothing;
 
 -- ------------------------------------------------------------ avvisi (messaggi, punti doppi, sfide lampo)
 create table if not exists public.avvisi (
@@ -201,13 +210,16 @@ begin
   if chi <> me and not adm then raise exception 'Puoi segnare punti solo per te'; end if;
   select * into r from regole where codice = p_codice;
   if not found then raise exception 'Azione sconosciuta'; end if;
-  if not r.segnabile and not (adm and p_codice in ('correzione', 'badge_bacari', 'badge_sestieri', 'badge_cicchetto')) then
+  if not r.segnabile and not (adm and p_codice in ('correzione', 'badge_bacari', 'badge_cicchetto')) then
     raise exception 'Questi punti li assegna l''app';
   end if;
   if p_foto is not null and not exists (select 1 from foto where id = p_foto and profilo_id = chi) then
     raise exception 'Foto non valida';
   end if;
-  if r.richiede_foto and p_foto is null and not adm then raise exception 'Per questa serve una foto'; end if;
+  if p_foto is null and not adm and (r.categoria = 'Sfide' or p_codice = 'sfida_lampo')
+     and coalesce((select valore from impostazioni where chiave = 'foto_sfide'), false) then
+    raise exception 'Per questa serve una foto';
+  end if;
   if p_sestiere is not null and not (p_sestiere = any (sestieri)) then p_sestiere := null; end if;
 
   base := r.punti;
@@ -243,18 +255,9 @@ begin
       insert into punti (profilo_id, codice, punti, molt, bacaro_id, bacaro_nome, creato_da)
         values (chi, 'primo', 1 * m, m, p_bacaro_id, left(p_bacaro_nome, 80), me);
     end if;
-    if p_sestiere is not null and not exists (
-      select 1 from punti where profilo_id = chi and codice = 'checkin' and sestiere = p_sestiere and id <> nuovo and not annullato) then
-      insert into punti (profilo_id, codice, punti, molt, sestiere, bacaro_nome, creato_da)
-        values (chi, 'sestiere', 2 * m, m, p_sestiere, left(p_bacaro_nome, 80), me);
-    end if;
     if (select count(distinct bacaro_id) from punti where profilo_id = chi and codice = 'checkin' and not annullato) >= 10
        and not exists (select 1 from punti where profilo_id = chi and codice = 'badge_bacari' and not annullato) then
       insert into punti (profilo_id, codice, punti, creato_da) values (chi, 'badge_bacari', 5, me);
-    end if;
-    if (select count(distinct sestiere) from punti where profilo_id = chi and codice = 'checkin' and sestiere = any (sestieri) and not annullato) >= 6
-       and not exists (select 1 from punti where profilo_id = chi and codice = 'badge_sestieri' and not annullato) then
-      insert into punti (profilo_id, codice, punti, creato_da) values (chi, 'badge_sestieri', 5, me);
     end if;
   end if;
   if p_codice like 'cicchetto%'
@@ -321,11 +324,12 @@ alter table public.foto enable row level security;
 alter table public.reazioni enable row level security;
 alter table public.commenti enable row level security;
 alter table public.punti enable row level security;
+alter table public.impostazioni enable row level security;
 
 -- niente per chi non ha una sessione; dentro l'app tutti vedono tutto (classifica e log sono pubblici)
-revoke all on public.profili, public.pin, public.regole, public.avvisi, public.foto, public.reazioni, public.commenti, public.punti, public.classifica from anon;
+revoke all on public.profili, public.pin, public.regole, public.avvisi, public.foto, public.reazioni, public.commenti, public.punti, public.classifica, public.impostazioni from anon;
 revoke all on public.pin from authenticated;
-revoke insert, update, delete on public.profili, public.punti, public.regole from authenticated;
+revoke insert, update, delete on public.profili, public.punti, public.regole, public.impostazioni from authenticated;
 grant update (nome, bio, foto) on public.profili to authenticated;
 grant update (punti, nota, annullato) on public.punti to authenticated;
 revoke execute on function public.crea_profilo, public.entra_profilo, public.segna, public.admin_pin,
@@ -367,6 +371,10 @@ drop policy if exists "scrivi il mio" on public.commenti;
 create policy "scrivi il mio" on public.commenti for insert to authenticated with check (profilo_id = mio_profilo());
 drop policy if exists "cancella" on public.commenti;
 create policy "cancella" on public.commenti for delete to authenticated using (profilo_id = mio_profilo() or sono_admin());
+drop policy if exists "leggi" on public.impostazioni;
+create policy "leggi" on public.impostazioni for select to authenticated using (true);
+drop policy if exists "admin cambia" on public.impostazioni;
+create policy "admin cambia" on public.impostazioni for update to authenticated using (sono_admin()) with check (sono_admin());
 
 -- permessi espliciti: i progetti Supabase nuovi non li danno in automatico alle tabelle create via SQL
 grant usage on schema public to authenticated;
@@ -374,7 +382,8 @@ grant usage, select on all sequences in schema public to authenticated;
 grant execute on function public.mio_profilo(), public.sono_admin() to authenticated;
 
 grant select on public.profili, public.regole, public.avvisi, public.foto, public.reazioni,
-  public.commenti, public.punti, public.classifica to authenticated;
+  public.commenti, public.punti, public.classifica, public.impostazioni to authenticated;
+grant update (valore) on public.impostazioni to authenticated;
 grant update (nome, bio, foto) on public.profili to authenticated;
 grant update (punti, nota, annullato) on public.punti to authenticated;
 grant insert, update, delete on public.avvisi to authenticated;
@@ -398,7 +407,7 @@ create policy "cancella le mie o admin" on storage.objects for delete to authent
 do $$
 declare t text;
 begin
-  foreach t in array array['avvisi', 'punti', 'foto', 'commenti', 'reazioni'] loop
+  foreach t in array array['avvisi', 'punti', 'foto', 'commenti', 'reazioni', 'impostazioni'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;
@@ -406,4 +415,4 @@ begin
 end $$;
 
 -- Ultimo passo, DOPO aver creato il tuo profilo nell'app: diventa admin (cambia il nome se serve)
--- update public.profili set ruolo = 'admin' where nome = 'Paolo';
+-- update public.profili set ruolo = 'admin' where lower(trim(nome)) = 'paolo';

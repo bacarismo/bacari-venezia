@@ -16,7 +16,7 @@
   const App = new Proxy({}, { get: (_, k) => window.App[k] }); // app.js si carica dopo
   let pronto;
   const giocoPronto = new Promise((ok) => { pronto = ok; });
-  const G = { sb: null, uid: null, io: null, profili: new Map(), regole: [], avvisi: [], pagina: null, visti: new Set() };
+  const G = { sb: null, uid: null, io: null, profili: new Map(), regole: [], avvisi: [], pagina: null, visti: new Set(), imp: {} };
   const toast = (m) => App.toast(m);
   const isAdmin = () => !!(G.io && G.io.ruolo === "admin");
   const fotoUrl = (path) => path ? `${cfg.url}/storage/v1/object/public/foto/${path.split("/").map(encodeURIComponent).join("/")}` : "";
@@ -64,7 +64,7 @@
         session = r.data.session;
       }
       G.uid = session.user.id;
-      await Promise.all([caricaProfili(), caricaRegole(), caricaAvvisi()]);
+      await Promise.all([caricaProfili(), caricaRegole(), caricaAvvisi(), caricaImpostazioni()]);
       G.io = [...G.profili.values()].find((p) => p.user_id === G.uid) || null;
       G.collegato = true;
       aggiornaMenu();
@@ -87,6 +87,13 @@
     if (error) throw error;
     G.regole = data;
   }
+  // se manca la tabella (script SQL non ancora rilanciato) il gioco va avanti con le foto facoltative
+  async function caricaImpostazioni() {
+    const { data } = await G.sb.from("impostazioni").select("*");
+    for (const r of data || []) G.imp[r.chiave] = r.valore;
+  }
+  // foto obbligatoria solo per le sfide, e solo se l'admin l'ha attivata
+  const vuoleFoto = (r) => !!G.imp.foto_sfide && (r.categoria === "Sfide" || r.codice === "sfida_lampo");
   async function caricaAvvisi() {
     const da = new Date(Date.now() - 6 * 3600e3).toISOString();
     const { data, error } = await G.sb.from("avvisi").select("*").gte("created_at", da).order("created_at");
@@ -120,14 +127,30 @@
     ch.on("postgres_changes", { event: "INSERT", schema: "public", table: "foto" }, (ev) => { if (G.pagina && G.pagina.live) G.pagina.live("foto", ev.new); });
     ch.on("postgres_changes", { event: "*", schema: "public", table: "commenti" }, (ev) => { if (G.pagina && G.pagina.live) G.pagina.live("commenti", ev.new || ev.old); });
     ch.on("postgres_changes", { event: "*", schema: "public", table: "reazioni" }, (ev) => { if (G.pagina && G.pagina.live) G.pagina.live("reazioni", ev.new || ev.old); });
-    ch.subscribe();
+    ch.on("postgres_changes", { event: "*", schema: "public", table: "impostazioni" }, (ev) => {
+      if (ev.new && ev.new.chiave) G.imp[ev.new.chiave] = ev.new.valore;
+    });
+    // se il canale cade (rete del telefono) riprova da solo
+    ch.subscribe((stato) => {
+      if (stato === "CHANNEL_ERROR" || stato === "TIMED_OUT") {
+        console.warn("realtime", stato);
+        setTimeout(() => { G.sb.removeChannel(ch); ascolta(); }, 5000);
+      }
+    });
+    if (ascolta.fatto) return;
+    ascolta.fatto = true;
     // al rientro nell'app (telefono in tasca) si rilegge tutto: il canale potrebbe essersi perso qualcosa
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState !== "visible") return;
       caricaAvvisi().catch(() => {});
+      caricaImpostazioni().catch(() => {});
       if (G.pagina && G.pagina.ricarica) G.pagina.ricarica();
     });
-    setInterval(mostraAvvisi, 30000);
+    // rete di sicurezza: anche senza tempo reale gli avvisi arrivano entro 15 secondi
+    setInterval(() => {
+      if (document.visibilityState === "visible") caricaAvvisi().catch(() => {});
+      else mostraAvvisi();
+    }, 15000);
   }
 
   // ------------------------------------------------------------ interfaccia di base
@@ -373,7 +396,7 @@
       ${selettoreGiocatore()}
       ${sfide.map((a) => `<button class="g-sfida" data-sfida="${a.id}"><b>⚡ ${esc(a.titolo)}</b><span>${num(a.punti || 0)} punti${a.fine ? " · entro le " + hhmm(a.fine) : ""} · con foto</span></button>`).join("")}
       ${cat.map((c) => `<div class="section-t">${c}</div><div class="g-azioni">${G.regole.filter((r) => r.categoria === c && r.segnabile).map((r) =>
-        `<button data-c="${r.codice}"><span class="e">${r.emoji}</span><span class="n">${esc(r.codice === "checkin" ? "Check-in in un bacaro" : r.nome)}</span><span class="p">${segno(r.punti)}${r.richiede_foto ? " 📷" : ""}</span></button>`).join("")}</div>`).join("")}`, (box) => {
+        `<button data-c="${r.codice}"><span class="e">${r.emoji}</span><span class="n">${esc(r.codice === "checkin" ? "Check-in in un bacaro" : r.nome)}</span><span class="p">${segno(r.punti)}${vuoleFoto(r) ? " 📷" : ""}</span></button>`).join("")}</div>`).join("")}`, (box) => {
       box.addEventListener("click", (e) => {
         const s = e.target.closest("[data-sfida]");
         if (s) return apriSegnaSfida(G.avvisi.find((a) => a.id === +s.dataset.sfida), perChi(box));
@@ -388,21 +411,21 @@
 
   function apriSegnaSfida(a, per = null) {
     if (!a || !attivo(a)) return toast("Questa sfida è scaduta");
-    apriConferma({ codice: "sfida_lampo", nome: a.titolo, emoji: "⚡", punti: a.punti || 0, richiede_foto: true }, { p_avviso: a.id }, per);
+    apriConferma({ codice: "sfida_lampo", nome: a.titolo, emoji: "⚡", punti: a.punti || 0 }, { p_avviso: a.id }, per);
   }
 
-  // Ultimo passo: nota, foto (obbligatoria per le sfide) e invio
+  // Ultimo passo: nota, foto (obbligatoria per le sfide solo se l'admin lo decide) e invio
   function apriConferma(r, extra, per) {
+    const obbl = vuoleFoto(r), sfida = r.categoria === "Sfide" || r.codice === "sfida_lampo";
     const x2 = doppiAttivo() && !/^badge|correzione/.test(r.codice) ? 2 : 1;
     let foto = null;
     apriModale(`
       <h3>${r.emoji} ${esc(r.nome)}</h3>
       <p class="g-tot">${segno(r.punti * x2)} punti${x2 > 1 ? " (doppi!)" : ""}${per ? " per " + esc(nomeDi(per)) : ""}${extra.p_bacaro_nome ? " · " + esc(extra.p_bacaro_nome) : ""}</p>
       <form class="g-form" id="g-conf">
-        ${extra.p_bacaro_id ? `<label>Sestiere <span class="muted">(+2 la prima volta)</span><select name="sestiere"><option value="">Non so / fuori dai sestieri</option>${SESTIERI.map((s) => `<option${s === extra.p_sestiere ? " selected" : ""}>${s}</option>`).join("")}</select></label>` : ""}
-        <label>Nota <span class="muted">(facoltativa)</span><input name="nota" maxlength="140" placeholder="${r.richiede_foto ? "Cosa hai fatto?" : "Dove, con chi…"}"></label>
+        <label>Nota <span class="muted">(facoltativa)</span><input name="nota" maxlength="140" placeholder="${sfida ? "Cosa hai fatto?" : "Dove, con chi…"}"></label>
         <div class="g-fotobox" id="g-fb">
-          <button type="button" class="btn" id="g-scegli">📷 ${r.richiede_foto ? "Aggiungi la foto (obbligatoria)" : "Aggiungi una foto"}</button>
+          <button type="button" class="btn" id="g-scegli">📷 ${obbl ? "Aggiungi la foto (obbligatoria)" : "Aggiungi una foto"}</button>
         </div>
         <button class="btn primary" type="submit">Segna ${segno(r.punti * x2)}</button>
       </form>`, (box) => {
@@ -417,13 +440,12 @@
       });
       $("#g-conf", box).addEventListener("submit", async (e) => {
         e.preventDefault();
-        if (r.richiede_foto && !foto && !isAdmin()) return toast("Per questa serve una foto");
+        if (obbl && !foto && !isAdmin()) return toast("Per questa serve una foto");
         const btn = $("button[type=submit]", e.target);
         btn.disabled = true;
         btn.textContent = foto ? "Carico la foto…" : "Segno…";
         try {
           const nota = e.target.nota.value.trim();
-          if (e.target.sestiere) extra.p_sestiere = e.target.sestiere.value || null;
           let fotoId = null;
           // la foto è di chi prende i punti: se l'admin segna per un altro resta nel suo profilo
           if (foto && !per) fotoId = await caricaFoto(foto, nota || r.nome);
@@ -491,7 +513,7 @@
     if (!act || !act.isConnected) return; // nel frattempo si è aperta un'altra scheda
     box.innerHTML = fatti.has(l.id)
       ? `<button class="btn" disabled>✓ Check-in fatto qui</button>`
-      : `<button class="btn primary" id="g-ci">📍 Check-in qui ${segno(regola("checkin").punti || 3)}</button>`;
+      : `<button class="btn primary" id="g-ci">📍 Check-in da ${esc(l.nome)} ${segno(regola("checkin").punti || 3)}</button>`;
     act.before(box);
     $("#g-ci", box)?.addEventListener("click", () => conProfilo(() => confermaCheckin(l, null)));
   }
@@ -649,7 +671,7 @@
   function rigaLog(x) {
     const r = regola(x.codice);
     const p = G.profili.get(x.profilo_id);
-    const det = [x.bacaro_nome, x.sestiere && x.codice === "sestiere" ? x.sestiere : "", x.nota].filter(Boolean);
+    const det = [x.bacaro_nome, x.nota].filter(Boolean);
     const da = x.creato_da && x.creato_da !== x.profilo_id ? ` · da ${esc(nomeDi(x.creato_da))}` : "";
     return `<div class="g-riga${x.annullato ? " annullato" : ""}" data-id="${x.id}">
       ${avatar(p, "sm")}
@@ -869,13 +891,13 @@
       render(el) {
         const cat = ["Bevi", "Mangia", "Esplora", "Sfide", "Badge"];
         el.innerHTML = cat.map((c) => `<div class="section-t">${c}</div><table class="g-tab">${G.regole.filter((r) => r.categoria === c).map((r) =>
-          `<tr><td>${r.emoji}</td><td>${esc(r.nome)}${r.richiede_foto ? " <small>(con foto)</small>" : ""}</td><td>${segno(r.punti)}</td></tr>`).join("")}</table>`).join("")
-          + `<div class="section-t">Admin</div><table class="g-tab"><tr><td>⚡</td><td>Sfida lampo (con foto)</td><td>a scelta</td></tr><tr><td>⏱️</td><td>Punti doppi per un tempo limitato</td><td>×2</td></tr></table>
+          `<tr><td>${r.emoji}</td><td>${esc(r.nome)}${vuoleFoto(r) ? " <small>(con foto)</small>" : ""}</td><td>${segno(r.punti)}</td></tr>`).join("")}</table>`).join("")
+          + `<div class="section-t">Admin</div><table class="g-tab"><tr><td>⚡</td><td>Sfida lampo${G.imp.foto_sfide ? " (con foto)" : ""}</td><td>a scelta</td></tr><tr><td>⏱️</td><td>Punti doppi per un tempo limitato</td><td>×2</td></tr></table>
           <div class="section-t">Regole</div>
-          <ul class="g-regole"><li>Il check-in vale una volta per bacaro. Il primo del gruppo a entrarci prende +1, e il primo check-in in un sestiere +2.</li>
-          <li>Le sfide valgono solo con la foto, che finisce nel feed.</li>
+          <ul class="g-regole"><li>Il check-in vale una volta per bacaro. Il primo del gruppo a entrarci prende +1.</li>
+          <li>${G.imp.foto_sfide ? "Le sfide valgono solo con la foto, che finisce nel feed." : "La foto è sempre facoltativa: se la aggiungi finisce nel feed."}</li>
           <li>Durante i punti doppi tutto vale ×2, tranne badge e correzioni.</li>
-          <li>I badge arrivano da soli: 10 bacari diversi, tutti e 6 i sestieri, 10 cicchetti.</li>
+          <li>I badge arrivano da soli: 10 bacari diversi, 10 cicchetti.</li>
           <li>L'admin può correggere o annullare qualsiasi punteggio. Si gioca sulla fiducia: niente furbate.</li></ul>`;
       },
     };
@@ -947,6 +969,8 @@
         const att = G.avvisi.filter((a) => a.tipo !== "messaggio" && attivo(a));
         el.innerHTML = `
           ${att.length ? `<div class="section-t">In corso</div><div class="list">${att.map((a) => `<div class="row"><div><div class="t">${a.tipo === "doppi" ? "⚡ Punti doppi" : "🎯 " + esc(a.titolo)}</div><div class="s">fino alle ${a.fine ? hhmm(a.fine) : "—"}</div></div><button class="btn" data-stop="${a.id}">Termina</button></div>`).join("")}</div>` : ""}
+          <div class="section-t">📷 Foto nelle sfide</div>
+          <label class="g-switch"><input type="checkbox" id="g-fotosfide"${G.imp.foto_sfide ? " checked" : ""}><span>Foto obbligatoria per sfide e sfide lampo</span></label>
           <div class="section-t">📣 Messaggio a tutti</div>
           <form class="g-form" data-f="messaggio"><input name="titolo" required maxlength="80" placeholder="Titolo (es. Ci vediamo a Rialto!)"><input name="testo" maxlength="300" placeholder="Testo (facoltativo)"><button class="btn primary">Invia</button></form>
           <div class="section-t">⚡ Punti doppi</div>
@@ -960,6 +984,13 @@
             <div class="g-riga2"><label>Punti (anche negativi) <input name="punti" type="number" step="0.5" value="1" required></label></div>
             <input name="nota" maxlength="140" placeholder="Motivo"><button class="btn primary">Assegna</button></form>
           <p class="muted">Per annullare o cambiare un singolo punteggio: menu → Punteggi, ogni riga ha Modifica e Annulla. Foto e commenti si moderano dal feed Foto.</p>`;
+        $("#g-fotosfide", el).addEventListener("change", async (e) => {
+          const v = e.target.checked;
+          const { data, error } = await G.sb.from("impostazioni").update({ valore: v }).eq("chiave", "foto_sfide").select();
+          if (error || !data || !data.length) { e.target.checked = !v; return errore(error || new Error("Rilancia schema.sql in Supabase per attivare questa opzione")); }
+          G.imp.foto_sfide = v;
+          toast(v ? "Foto obbligatoria nelle sfide" : "Foto facoltativa anche nelle sfide");
+        });
         el.addEventListener("click", async (e) => {
           const b = e.target.closest("[data-stop]");
           if (!b) return;
