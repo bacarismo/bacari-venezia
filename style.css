@@ -562,3 +562,6 @@ button, .btn, a, input, select, label { touch-action: manipulation; }
 .g-tut-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 420px; width: 100%; margin: 0 auto; }
 .g-tut-nav .btn { justify-content: center; min-height: 48px; }
 .g-tut-nota { font-size: 14px !important; }
+.searchbox .logo { width: 26px; height: 26px; flex: none; border-radius: 7px; }
+.brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 18px 0 6px; color: var(--muted); font: 800 15px var(--display); }
+.brand img { border-radius: 8px; }
