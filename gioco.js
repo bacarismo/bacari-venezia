@@ -430,7 +430,7 @@
             delete qta[c]; // se una voce dopo fallisce, Riprova non rimanda quelle già segnate
           }
           chiudiModale();
-          toast(`${segno(t)} ${voci.map(([c, n]) => (n > 1 ? n + "× " : "") + regola(c).emoji).join(" ")}`);
+          toast(`${segno(t)} · ${voci.map(([c, n]) => `${n > 1 ? n + "× " : ""}${regola(c).emoji} ${regola(c).nome}`).join(", ")}`);
           aggiornaMenu();
         } catch (err) {
           errore(err);
