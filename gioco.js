@@ -979,7 +979,7 @@
           </form>
           <div class="section-t">Notifiche</div>
           <p class="muted" id="g-pushstato">${testoPush()}</p>
-          ${statoPush() === "si" || statoPush() === "no" || statoPush() === "negato" ? "" : `<button class="btn primary" id="g-push">🔔 Attiva le notifiche</button>`}
+          ${statoPush() === "no" || statoPush() === "negato" ? "" : statoPush() === "si" ? `<button class="btn" id="g-push">🔄 Ricollega le notifiche</button>` : `<button class="btn primary" id="g-push">🔔 Attiva le notifiche</button>`}
           <div class="section-t">Questo telefono</div>
           <p class="muted">Per entrare da un altro telefono usa "Accedi" con il tuo nome.</p>
           <button class="btn" id="g-esci">Esci da questo telefono</button>`;
