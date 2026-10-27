@@ -713,22 +713,43 @@
           const p = G.profili.get(r.id) || r;
           return `<li class="${G.io && r.id === G.io.id ? "io" : ""}"><button data-u="${r.id}"><span class="pos">${pos <= 3 ? ["🥇", "🥈", "🥉"][pos - 1] : pos}</span>${avatar(p)}<span class="n"><b>${esc(r.nome)}</b><small>${r.bacari} bacari</small></span><span class="pt">${num(r.totale)}</span></button></li>`;
         }).join("")}</ol>` : `<p class="empty">Ancora nessun giocatore.</p>`;
-        el.addEventListener("click", (e) => { const b = e.target.closest("[data-u]"); if (b) apriGiocatore(b.dataset.u); });
       },
       ricarica() { apriPagina("classifica"); },
     };
   }
 
+  // scheda di un giocatore: si apre toccando nome o foto profilo ovunque (classifica, punteggi, foto, commenti)
   async function apriGiocatore(id) {
     const p = G.profili.get(id);
     if (!p) return;
-    const { data } = await G.sb.from("punti").select("*").eq("profilo_id", id).order("created_at", { ascending: false }).limit(50);
-    const tot = (data || []).filter((x) => !x.annullato).reduce((s, x) => s + Number(x.punti), 0);
+    const [pt, ft, cl] = await Promise.all([
+      G.sb.from("punti").select("*").eq("profilo_id", id).order("created_at", { ascending: false }).limit(50),
+      G.sb.from("foto").select("id,thumb").eq("profilo_id", id).eq("nascosta", false).order("created_at", { ascending: false }).limit(9),
+      G.sb.from("classifica").select("id,totale,bacari").order("totale", { ascending: false }),
+    ]);
+    const righe = pt.data || [], foto = ft.data || [], tutti = cl.data || [];
+    const mia = tutti.find((r) => r.id === id);
+    const tot = mia ? Number(mia.totale) : righe.filter((x) => !x.annullato).reduce((s, x) => s + Number(x.punti), 0);
+    const pos = mia ? tutti.filter((r) => Number(r.totale) > tot).length + 1 : 0;
     apriModale(`
+      <div class="g-giocatore">
       <div class="g-prof">${avatar(p, "big")}<div><h3>${esc(p.nome)}${p.ruolo === "admin" ? ' <span class="tag">admin</span>' : ""}</h3>${p.bio ? `<p>${esc(p.bio)}</p>` : ""}</div></div>
-      <p class="g-tot">${num(tot)} punti</p>
-      <div class="g-log">${(data || []).map(rigaLog).join("") || '<p class="empty">Nessun punto ancora.</p>'}</div>`);
+      <p class="g-tot">${num(tot)} punti${pos ? ` <small>· ${pos <= 3 ? ["🥇", "🥈", "🥉"][pos - 1] : pos + "°"} in classifica · ${mia.bacari} bacari</small>` : ""}</p>
+      ${foto.length ? `<div class="g-gfoto">${foto.map((f) => `<button class="g-thumb" data-foto="${f.id}"><img alt="" loading="lazy" src="${esc(fotoUrl(f.thumb))}"></button>`).join("")}</div>` : ""}
+      <div class="g-log">${righe.map(rigaLog).join("") || '<p class="empty">Nessun punto ancora.</p>'}</div>
+      </div>`, (box) => {
+      riempiMiniature(box);
+      box.addEventListener("click", (e) => {
+        const f = e.target.closest("[data-foto]");
+        if (f) { chiudiModale(); apriFoto(+f.dataset.foto); }
+      });
+    });
   }
+  // un solo ascoltatore per tutta l'app; dentro la scheda stessa non si riapre
+  document.addEventListener("click", (e) => {
+    const u = e.target.closest("[data-u]");
+    if (u && !u.closest(".g-giocatore")) apriGiocatore(u.dataset.u);
+  });
 
   function rigaLog(x) {
     const r = regola(x.codice);
@@ -736,8 +757,8 @@
     const det = [x.bacaro_nome, x.nota].filter(Boolean);
     const da = x.creato_da && x.creato_da !== x.profilo_id ? ` · da ${esc(nomeDi(x.creato_da))}` : "";
     return `<div class="g-riga${x.annullato ? " annullato" : ""}" data-id="${x.id}">
-      ${avatar(p, "sm")}
-      <div class="g-riga-t"><div><b>${esc(nomeDi(x.profilo_id))}</b> ${x.qta > 1 ? x.qta + "× " : ""}${r.emoji} ${esc(x.codice === "sfida_lampo" && x.nota ? "Sfida lampo" : r.nome)}</div>
+      <button class="g-u" data-u="${x.profilo_id}" aria-label="Profilo di ${esc(nomeDi(x.profilo_id))}">${avatar(p, "sm")}</button>
+      <div class="g-riga-t"><div><b data-u="${x.profilo_id}">${esc(nomeDi(x.profilo_id))}</b> ${x.qta > 1 ? x.qta + "× " : ""}${r.emoji} ${esc(x.codice === "sfida_lampo" && x.nota ? "Sfida lampo" : r.nome)}</div>
         <small>${esc(det.join(" · "))}${det.length ? " · " : ""}${quando(x.created_at)}${da}${x.molt > 1 ? " · ×2" : ""}</small>
         ${isAdmin() ? `<div class="g-adm"><button data-mod="${x.id}">Modifica</button><button data-ann="${x.id}">${x.annullato ? "Ripristina" : "Annulla"}</button></div>` : ""}</div>
       ${x.foto_id ? `<button class="g-thumb" data-foto="${x.foto_id}"><img alt="" loading="lazy" data-thumb="${x.foto_id}"></button>` : ""}
@@ -827,13 +848,13 @@
     const mie = new Set(reaz.filter((r) => G.io && r.profilo_id === G.io.id).map((r) => r.emoji));
     const ratio = f.larghezza && f.altezza ? ` width="${f.larghezza}" height="${f.altezza}"` : "";
     return `<article class="g-card${f.nascosta ? " annullato" : ""}" data-f="${f.id}">
-      <header>${avatar(p, "sm")}<b>${esc(nomeDi(f.profilo_id))}</b><small>${quando(f.created_at)}</small>
+      <header><button class="g-u" data-u="${f.profilo_id}" aria-label="Profilo di ${esc(nomeDi(f.profilo_id))}">${avatar(p, "sm")}</button><b data-u="${f.profilo_id}">${esc(nomeDi(f.profilo_id))}</b><small>${quando(f.created_at)}</small>
         ${isAdmin() ? `<span class="g-adm"><button data-nasc="${f.id}">${f.nascosta ? "Mostra" : "Nascondi"}</button><button data-del="${f.id}">Elimina</button></span>`
           : G.io && f.profilo_id === G.io.id ? `<span class="g-adm"><button data-del="${f.id}">Elimina</button></span>` : ""}</header>
       <img src="${esc(fotoUrl(f.path))}" alt="${esc(f.didascalia || "Foto")}" loading="lazy" decoding="async"${ratio}>
       ${f.didascalia ? `<p class="g-did">${esc(f.didascalia)}</p>` : ""}
       <div class="g-reaz">${EMOJI.map((e) => { const n = reaz.filter((r) => r.emoji === e).length; return `<button data-r="${e}" aria-pressed="${mie.has(e)}">${e}${n ? ` <span>${n}</span>` : ""}</button>`; }).join("")}</div>
-      <div class="g-comm">${comm.map((c) => `<p data-c="${c.id}"><b>${esc(nomeDi(c.profilo_id))}</b> ${esc(c.testo)}${isAdmin() || (G.io && c.profilo_id === G.io.id) ? ` <button class="g-delc" data-delc="${c.id}" aria-label="Cancella commento">✕</button>` : ""}</p>`).join("")}</div>
+      <div class="g-comm">${comm.map((c) => `<p data-c="${c.id}"><b data-u="${c.profilo_id}">${esc(nomeDi(c.profilo_id))}</b> ${esc(c.testo)}${isAdmin() || (G.io && c.profilo_id === G.io.id) ? ` <button class="g-delc" data-delc="${c.id}" aria-label="Cancella commento">✕</button>` : ""}</p>`).join("")}</div>
       <form class="g-scrivi"><input name="t" maxlength="200" placeholder="Commenta…" autocomplete="off" enterkeyhint="send"><button aria-label="Invia">↑</button></form>
     </article>`;
   }
