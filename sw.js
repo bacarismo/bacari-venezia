@@ -56,3 +56,16 @@ self.addEventListener("fetch", (e) => {
     return e.respondWith(networkFirst(e.request, SHELL));
   }
 });
+
+// notifiche push (punti doppi, sfide lampo, messaggi dell'admin)
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { testo: e.data ? e.data.text() : "" }; }
+  e.waitUntil(self.registration.showNotification(d.titolo || "Bacaro Tour", {
+    body: d.testo || "", icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: d.tag || "avviso", renotify: true,
+  }));
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => (cs[0] ? cs[0].focus() : self.clients.openWindow("./"))));
+});

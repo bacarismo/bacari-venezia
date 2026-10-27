@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Bacaro Tour 2026 · chiavi notifiche</title>
+<style>
+  :root { --bg: #f3f1ea; --ink: #1d2422; --muted: #5d6763; --line: #dcd8cc; --surface: #fffdf7; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151a1a; --ink: #eef0ea; --muted: #a3ada8; --line: #34403d; --surface: #1e2524; color-scheme: dark; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-left)); display: grid; gap: 14px; }
+  h1 { margin: 0; font-size: 26px; }
+  p { margin: 0; color: var(--muted); }
+  label { display: grid; gap: 4px; font-weight: 700; }
+  input { font: 14px ui-monospace, monospace; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+  button { font: 700 16px system-ui; padding: 12px; border-radius: 10px; border: 0; background: var(--ink); color: var(--surface); cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chiavi per le notifiche</h1>
+  <p>Le chiavi nascono in questo browser e non vengono mandate da nessuna parte. Copiale nei segreti della funzione "push" su Supabase. La chiave privata non va mandata a nessuno, nemmeno a Claude.</p>
+  <button id="go">Genera le chiavi</button>
+  <label>VAPID_PUBLIC_KEY <input id="pub" readonly></label>
+  <label>VAPID_PRIVATE_KEY <input id="priv" readonly></label>
+</main>
+<script>
+  const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  document.getElementById("go").addEventListener("click", async () => {
+    const k = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+    document.getElementById("pub").value = b64url(await crypto.subtle.exportKey("raw", k.publicKey));
+    document.getElementById("priv").value = (await crypto.subtle.exportKey("jwk", k.privateKey)).d;
+  });
+  document.querySelectorAll("input").forEach((i) => i.addEventListener("focus", () => i.select()));
+</script>
+</body>
+</html>

@@ -49,6 +49,7 @@
     aggiornaMenu();
     if (await collega()) {
       ascolta();
+      ricollegaPush();
       if (!G.io) apriEntra();
     }
     pronto();
@@ -175,6 +176,7 @@
       if (!b) return;
       chiudiMenu();
       if (b.dataset.p === "entra") entra();
+      else if (b.dataset.p === "tutorial") apriTutorial();
       else apriPagina(b.dataset.p);
     });
     $("#g-pagina").addEventListener("click", (e) => { if (e.target.closest("[data-chiudi]")) chiudiPagina(); });
@@ -216,7 +218,7 @@
   async function aggiornaMenu() {
     const box = $("#g-drawer .g-drawer-in");
     // senza profilo il menu offre solo l'ingresso
-    const voci = G.io ? [["classifica", "🏆", "Classifica"], ["punteggi", "📜", "Punteggi"], ["foto", "📸", "Foto"], ["regolamento", "📖", "Regolamento"], ["profilo", "👤", "Profilo"]] : [["entra", "👋", "Iscriviti / Accedi"]];
+    const voci = G.io ? [["classifica", "🏆", "Classifica"], ["punteggi", "📜", "Punteggi"], ["foto", "📸", "Foto"], ["regolamento", "📖", "Regolamento"], ["profilo", "👤", "Profilo"], ["tutorial", "❓", "Come si gioca"]] : [["entra", "👋", "Iscriviti / Accedi"]];
     if (isAdmin()) voci.push(["admin", "⚙️", "Admin"]);
     box.innerHTML = `
       <div class="g-me">${G.io ? `${avatar(G.io, "big")}<div><b>${esc(G.io.nome)}</b><span id="g-mieipunti">…</span></div>` : `<div><b>Bacaro Tour 2026</b><span>Crea il tuo profilo per giocare</span></div>`}</div>
@@ -339,6 +341,8 @@
         chiudi();
         aggiornaMenu();
         toast(modo === "nuovo" ? `Benvenuto ${G.io.nome}! Tocca + per segnare punti` : `Bentornato ${G.io.nome}`);
+        if (!tutorialVisto("tutorial")) apriTutorial();
+        else ricollegaPush();
       } catch (err) {
         // l'errore resta scritto sotto il pulsante (un toast finirebbe dietro la pagina)
         console.warn(err);
@@ -973,6 +977,9 @@
             <label>Bio <textarea name="bio" maxlength="160" rows="3">${esc(io.bio)}</textarea></label>
             <button class="btn primary">Salva</button>
           </form>
+          <div class="section-t">Notifiche</div>
+          <p class="muted" id="g-pushstato">${testoPush()}</p>
+          ${statoPush() === "si" || statoPush() === "no" || statoPush() === "negato" ? "" : `<button class="btn primary" id="g-push">🔔 Attiva le notifiche</button>`}
           <div class="section-t">Questo telefono</div>
           <p class="muted">Per entrare da un altro telefono usa "Accedi" con il tuo nome.</p>
           <button class="btn" id="g-esci">Esci da questo telefono</button>`;
@@ -983,6 +990,10 @@
           await caricaProfili();
           toast("Profilo salvato");
           aggiornaMenu();
+        });
+        $("#g-push", el)?.addEventListener("click", async (e) => {
+          e.target.disabled = true;
+          try { await attivaPush(); toast("Notifiche attive"); apriPagina("profilo"); } catch (err) { errore(err); e.target.disabled = false; }
         });
         $("#g-av", el).addEventListener("click", async () => {
           const file = await scegliFile();
@@ -1072,7 +1083,15 @@
             if (tipo === "correzione") res = await G.sb.rpc("segna", { p_codice: "correzione", p_nota: f.nota.value.trim(), p_per: f.chi.value, p_punti: Number(f.punti.value) });
             if (res.error) throw res.error;
             toast({ messaggio: "Messaggio inviato", doppi: "Punti doppi lanciati", sfida: "Sfida lanciata", correzione: "Punti assegnati" }[tipo]);
-            if (tipo !== "correzione") { await caricaAvvisi(); apriPagina("admin"); } else f.reset();
+            if (tipo !== "correzione") {
+              const ora = fine ? ", entro le " + hhmm(fine) : "";
+              const n = tipo === "messaggio" ? ["📣 " + f.titolo.value.trim(), f.testo.value.trim()]
+                : tipo === "doppi" ? ["⚡ Punti doppi!", `Tutto vale doppio per ${f.durata.value} minuti`]
+                : ["🎯 Sfida lampo: " + f.titolo.value.trim(), `${num(f.punti.value)} punti${ora}`];
+              inviaPush(n[0], n[1], tipo).then((r) => toast(`Notifica inviata a ${r.inviate} telefoni`))
+                .catch((e2) => toast("Avviso pubblicato, ma la notifica push non è partita: " + spiegaErrore(e2)));
+              await caricaAvvisi(); apriPagina("admin");
+            } else f.reset();
           } catch (err) { errore(err); }
           btn.disabled = false;
         });
@@ -1164,6 +1183,97 @@
         } catch (err) { errore(err); btn.disabled = false; }
       });
     });
+  }
+
+  // ------------------------------------------------------------ notifiche push
+  // Su iPhone arrivano solo con l'app aggiunta alla schermata Home (iOS 16.4+).
+  const suIphone = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const inHome = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  function statoPush() {
+    if (!("serviceWorker" in navigator && "PushManager" in window && "Notification" in window)) return suIphone && !inHome() ? "home" : "no";
+    if (Notification.permission === "denied") return "negato";
+    return Notification.permission === "granted" ? "si" : "chiedi";
+  }
+  function testoPush() {
+    return {
+      si: "Attive su questo telefono: ti arriva un avviso per punti doppi, sfide lampo e messaggi dell'admin.",
+      chiedi: "Ricevi un avviso sul telefono per punti doppi, sfide lampo e messaggi dell'admin, anche ad app chiusa.",
+      home: "Su iPhone le notifiche funzionano solo dall'app nella Home: tocca Condividi ⎋ → Aggiungi alla schermata Home, poi apri l'app da lì.",
+      negato: "Le hai bloccate: si riattivano dalle impostazioni del telefono (Notifiche → Bacaro Tour, o nelle impostazioni del sito).",
+      no: "Questo browser non supporta le notifiche.",
+    }[statoPush()];
+  }
+  const daB64 = (t) => Uint8Array.from(atob((t + "=".repeat((4 - (t.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  async function attivaPush() {
+    const st = statoPush();
+    if (st !== "chiedi" && st !== "si") throw new Error(testoPush());
+    if ((await Notification.requestPermission()) !== "granted") throw new Error("Notifiche non permesse");
+    const { data, error } = await G.sb.functions.invoke("push", { body: { azione: "chiave" } });
+    if (error || !data || !data.chiave) throw new Error("Le notifiche non sono ancora pronte sul server");
+    const chiave = daB64(data.chiave);
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    // chiave cambiata sul server: la vecchia iscrizione non serve più
+    const vecchia = sub && sub.options.applicationServerKey && new Uint8Array(sub.options.applicationServerKey).join() !== chiave.join();
+    if (vecchia) { await sub.unsubscribe(); sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chiave });
+    const j = sub.toJSON();
+    const r = await G.sb.rpc("salva_iscrizione", { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
+    if (r.error) throw r.error;
+  }
+  // se il permesso c'è già, l'iscrizione segue il profilo attuale (cambio profilo, chiave nuova)
+  function ricollegaPush() { if (G.io && statoPush() === "si") attivaPush().catch((e) => console.warn("push", e)); }
+  async function inviaPush(titolo, testo, tag) {
+    const { data, error } = await G.sb.functions.invoke("push", { body: { azione: "invia", titolo, testo, tag } });
+    if (error) throw error;
+    return data;
+  }
+
+  // ------------------------------------------------------------ tutorial (primo accesso, poi dal menu)
+  const tutorialVisto = (k) => { try { return localStorage.getItem("gioco-" + k) === "1"; } catch (e) { return false; } };
+  const ricordaVisto = (k) => { try { localStorage.setItem("gioco-" + k, "1"); } catch (e) { /* va bene lo stesso */ } };
+  function apriTutorial() {
+    chiudiMenu();
+    if ($(".g-tutorial")) return;
+    const pagine = [
+      ["🗺️", "La mappa", "I puntini sono bacari, osterie e bar. Tocca un locale: orari, vaporetto più vicino e la freccia ➜ per arrivarci a piedi."],
+      ["📍", "Check-in", "Nella scheda del bacaro tocca \"Check-in da…\": +3 la prima volta in ogni bacaro, +1 se arrivi prima di tutto il gruppo."],
+      ["🍷", "Bevi e Mangia", "Con il + o con 🍷 Bevi / 🍢 Mangia nella scheda: scegli quanti con − +, poi Registra. Tre cicchetti = +1,5 in un colpo."],
+      ["📸", "Foto e sfide", "Il tasto 📷 manda una foto nel feed del gruppo. Quando arrivano punti doppi o una sfida lampo compare un avviso: corri!"],
+      ["🏆", "Classifica", "Dal menu ☰ trovi classifica, punteggi di tutti, foto e regolamento. Si gioca sulla fiducia: niente furbate."],
+    ];
+    const tut = document.createElement("div");
+    tut.className = "g-tutorial";
+    tut.setAttribute("role", "dialog");
+    tut.setAttribute("aria-label", "Come si gioca");
+    document.body.append(tut);
+    let i = 0;
+    const fine = () => { ricordaVisto("tutorial"); tut.remove(); ricollegaPush(); };
+    const disegna = () => {
+      const [e, t, x] = pagine[i];
+      const ultima = i === pagine.length - 1;
+      const st = statoPush();
+      tut.innerHTML = `
+        <div class="g-tut-top"><button class="g-tut-salta" data-fine>${ultima ? "Chiudi" : "Salta"}</button></div>
+        <div class="g-tut-corpo"><div class="g-tut-emoji" aria-hidden="true">${e}</div><h2>${t}</h2><p>${x}</p>
+          ${ultima && st === "chiedi" ? `<button class="btn primary" id="g-tpush">🔔 Attiva le notifiche</button><p class="g-tut-nota">Per sapere subito di punti doppi e sfide lampo.</p>` : ""}
+          ${ultima && st === "home" ? `<p class="g-tut-nota">🔔 ${testoPush()}</p>` : ""}
+        </div>
+        <div class="g-tut-punti" aria-hidden="true">${pagine.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>
+        <div class="g-tut-nav"><button class="btn" data-dir="-1"${i ? "" : " disabled"}>Indietro</button><button class="btn primary" data-dir="1">${ultima ? "Inizia a giocare" : "Avanti"}</button></div>`;
+      $("[data-fine]", tut).addEventListener("click", fine);
+      tut.querySelectorAll("[data-dir]").forEach((b) => b.addEventListener("click", () => {
+        const d = +b.dataset.dir;
+        if (d > 0 && ultima) return fine();
+        i = Math.max(0, Math.min(pagine.length - 1, i + d));
+        disegna();
+      }));
+      $("#g-tpush", tut)?.addEventListener("click", async (ev) => {
+        ev.target.disabled = true;
+        try { await attivaPush(); toast("Notifiche attive"); disegna(); } catch (err) { errore(err); ev.target.disabled = false; }
+      });
+    };
+    disegna();
   }
 
   window.Gioco = { avvia, schedaLocale };
