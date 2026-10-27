@@ -422,3 +422,6 @@ end $$;
 
 -- Ultimo passo, DOPO aver creato il tuo profilo nell'app: diventa admin (cambia il nome se serve)
 -- update public.profili set ruolo = 'admin' where lower(trim(nome)) = 'paolo';
+
+-- fa vedere subito le funzioni nuove all'app (altrimenti: "could not find the function ... in the schema cache")
+notify pgrst, 'reload schema';
