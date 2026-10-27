@@ -386,18 +386,73 @@
   }
   const perChi = (box) => { const s = $("#g-per", box); return s && s.value !== G.io.id ? s.value : null; };
 
-  function apriSegna() {
+  // Bevi e Mangia hanno la quantità (− 1 +) e un solo Registra; il resto si apre con un tocco.
+  // solo: una sola categoria (scorciatoie dalla scheda locale); extra: bacaro da attaccare ai punti
+  const CON_QTA = ["Bevi", "Mangia"];
+  function apriSegna(solo = null, extra = {}) {
     const x2 = doppiAttivo();
-    const cat = ["Bevi", "Mangia", "Esplora", "Sfide"];
-    const sfide = sfideAttive();
+    const cat = solo ? [solo] : ["Bevi", "Mangia", "Esplora", "Sfide"];
+    const sfide = solo ? [] : sfideAttive();
+    const qta = {};
+    const titolo = solo ? ({ Bevi: "🍷 Bevi", Mangia: "🍢 Mangia" }[solo] || solo) : "Segna punti";
     apriModale(`
-      <h3>Segna punti</h3>
+      <h3>${titolo}</h3>
+      ${extra.p_bacaro_nome ? `<p class="muted">da ${esc(extra.p_bacaro_nome)}</p>` : ""}
       ${x2 ? `<p class="g-x2">⚡ Punti doppi fino alle ${hhmm(x2.fine)}</p>` : ""}
       ${selettoreGiocatore()}
-      ${sfide.map((a) => `<button class="g-sfida" data-sfida="${a.id}"><b>⚡ ${esc(a.titolo)}</b><span>${num(a.punti || 0)} punti${a.fine ? " · entro le " + hhmm(a.fine) : ""} · con foto</span></button>`).join("")}
-      ${cat.map((c) => `<div class="section-t">${c}</div><div class="g-azioni">${G.regole.filter((r) => r.categoria === c && r.segnabile).map((r) =>
-        `<button data-c="${r.codice}"><span class="e">${r.emoji}</span><span class="n">${esc(r.codice === "checkin" ? "Check-in in un bacaro" : r.nome)}</span><span class="p">${segno(r.punti)}${vuoleFoto(r) ? " 📷" : ""}</span></button>`).join("")}</div>`).join("")}`, (box) => {
+      ${sfide.map((a) => `<button class="g-sfida" data-sfida="${a.id}"><b>⚡ ${esc(a.titolo)}</b><span>${num(a.punti || 0)} punti${a.fine ? " · entro le " + hhmm(a.fine) : ""}${G.imp.foto_sfide ? " · con foto" : ""}</span></button>`).join("")}
+      ${cat.map((c) => {
+        const rr = G.regole.filter((r) => r.categoria === c && r.segnabile);
+        if (CON_QTA.includes(c)) return `${solo ? "" : `<div class="section-t">${c}</div>`}<div class="g-qlista">${rr.map((r) =>
+          `<div class="g-qrow" data-q="${r.codice}"><span class="e">${r.emoji}</span><span class="n">${esc(r.nome)}<span class="p">${segno(r.punti)}</span></span>
+            <div class="g-step"><button type="button" data-meno aria-label="Uno in meno" disabled>−</button><b>0</b><button type="button" data-piu aria-label="Uno in più">+</button></div></div>`).join("")}</div>`;
+        return `<div class="section-t">${c}</div><div class="g-azioni">${rr.map((r) =>
+          `<button data-c="${r.codice}"><span class="e">${r.emoji}</span><span class="n">${esc(r.codice === "checkin" ? "Check-in in un bacaro" : r.nome)}</span><span class="p">${segno(r.punti)}${vuoleFoto(r) ? " 📷" : ""}</span></button>`).join("")}</div>`;
+      }).join("")}
+      ${cat.some((c) => CON_QTA.includes(c)) ? `<div class="g-registra"><button class="btn primary" id="g-reg" disabled>Scegli cosa segnare</button></div>` : ""}`, (box) => {
+      const reg = $("#g-reg", box);
+      const totale = () => Object.entries(qta).reduce((t, [c, n]) => t + regola(c).punti * n, 0) * (x2 ? 2 : 1);
+      const aggiorna = () => {
+        const t = totale();
+        reg.disabled = t === 0;
+        reg.textContent = t ? `Registra ${segno(t)}${x2 ? " (doppi!)" : ""}` : "Scegli cosa segnare";
+      };
+      reg?.addEventListener("click", async () => {
+        const voci = Object.entries(qta).filter(([, n]) => n > 0);
+        if (!voci.length) return;
+        const per = perChi(box), t = totale();
+        reg.disabled = true;
+        reg.textContent = "Segno…";
+        try {
+          for (const [c, n] of voci) {
+            const { error } = await G.sb.rpc("segna", { p_codice: c, p_qta: n, p_per: per, ...extra });
+            if (error) throw error;
+            delete qta[c]; // se una voce dopo fallisce, Riprova non rimanda quelle già segnate
+          }
+          chiudiModale();
+          toast(`${segno(t)} ${voci.map(([c, n]) => (n > 1 ? n + "× " : "") + regola(c).emoji).join(" ")}`);
+          aggiornaMenu();
+        } catch (err) {
+          errore(err);
+          box.querySelectorAll("[data-q]").forEach((row) => { const n = qta[row.dataset.q] || 0; $("b", row).textContent = n; row.classList.toggle("on", n > 0); $("[data-meno]", row).disabled = !n; });
+          aggiorna();
+          if (!reg.disabled) reg.textContent = "Riprova " + reg.textContent.replace("Registra ", "");
+        }
+      });
       box.addEventListener("click", (e) => {
+        const q = e.target.closest("[data-q]");
+        if (q) {
+          const c = q.dataset.q;
+          const d = e.target.closest("[data-piu]") ? 1 : e.target.closest("[data-meno]") ? -1 : 0;
+          if (!d) return;
+          const n = Math.max(0, Math.min(10, (qta[c] || 0) + d));
+          qta[c] = n;
+          $("b", q).textContent = n;
+          q.classList.toggle("on", n > 0);
+          $("[data-meno]", q).disabled = n === 0;
+          $("[data-piu]", q).disabled = n === 10;
+          return aggiorna();
+        }
         const s = e.target.closest("[data-sfida]");
         if (s) return apriSegnaSfida(G.avvisi.find((a) => a.id === +s.dataset.sfida), perChi(box));
         const b = e.target.closest("[data-c]");
@@ -514,8 +569,11 @@
     box.innerHTML = fatti.has(l.id)
       ? `<button class="btn" disabled>✓ Check-in fatto qui</button>`
       : `<button class="btn primary" id="g-ci">📍 Check-in da ${esc(l.nome)} ${segno(regola("checkin").punti || 3)}</button>`;
+    box.insertAdjacentHTML("beforeend", `<div class="g-scorc"><button class="btn" data-cat="Bevi">🍷 Bevi</button><button class="btn" data-cat="Mangia">🍢 Mangia</button></div>`);
     act.before(box);
     $("#g-ci", box)?.addEventListener("click", () => conProfilo(() => confermaCheckin(l, null)));
+    box.querySelectorAll("[data-cat]").forEach((b) => b.addEventListener("click", () =>
+      conProfilo(() => apriSegna(b.dataset.cat, { p_bacaro_id: l.id, p_bacaro_nome: l.nome }))));
   }
 
   // ------------------------------------------------------------ foto: compressione sul telefono e caricamento
@@ -675,7 +733,7 @@
     const da = x.creato_da && x.creato_da !== x.profilo_id ? ` · da ${esc(nomeDi(x.creato_da))}` : "";
     return `<div class="g-riga${x.annullato ? " annullato" : ""}" data-id="${x.id}">
       ${avatar(p, "sm")}
-      <div class="g-riga-t"><div><b>${esc(nomeDi(x.profilo_id))}</b> ${r.emoji} ${esc(x.codice === "sfida_lampo" && x.nota ? "Sfida lampo" : r.nome)}</div>
+      <div class="g-riga-t"><div><b>${esc(nomeDi(x.profilo_id))}</b> ${x.qta > 1 ? x.qta + "× " : ""}${r.emoji} ${esc(x.codice === "sfida_lampo" && x.nota ? "Sfida lampo" : r.nome)}</div>
         <small>${esc(det.join(" · "))}${det.length ? " · " : ""}${quando(x.created_at)}${da}${x.molt > 1 ? " · ×2" : ""}</small>
         ${isAdmin() ? `<div class="g-adm"><button data-mod="${x.id}">Modifica</button><button data-ann="${x.id}">${x.annullato ? "Ripristina" : "Annulla"}</button></div>` : ""}</div>
       ${x.foto_id ? `<button class="g-thumb" data-foto="${x.foto_id}"><img alt="" loading="lazy" data-thumb="${x.foto_id}"></button>` : ""}
