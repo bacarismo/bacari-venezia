@@ -416,7 +416,7 @@ body:not(.gioco) .gfab, body.navigando .gfab, body.locked .gfab, body.navigando 
 .g-seg button { flex: 1; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px; font-weight: 700; }
 .g-seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
 .g-per { display: flex; gap: 8px; align-items: center; font-weight: 700; margin: 6px 0; }
-.g-per select { flex: 1; font: 15px var(--body); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.g-per select { flex: 1; font: 16px var(--body); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 
 .g-azioni { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .g-azioni button {
@@ -472,7 +472,7 @@ body:not(.gioco) .gfab, body.navigando .gfab, body.locked .gfab, body.navigando 
 .g-comm p { margin: 4px 0; font-size: 15px; overflow-wrap: anywhere; }
 .g-delc { border: 0; background: none; color: var(--muted); font-size: 12px; }
 .g-scrivi { display: flex; gap: 6px; margin-top: 6px; }
-.g-scrivi input { flex: 1; min-width: 0; font: 15px var(--body); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.g-scrivi input { flex: 1; min-width: 0; font: 16px var(--body); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .g-scrivi button { border: 0; background: var(--ink); color: var(--surface); border-radius: 50%; width: 38px; height: 38px; font-weight: 800; }
 .g-tab { width: 100%; border-collapse: collapse; }
 .g-tab td { padding: 7px 4px; border-bottom: 1px solid var(--line); }
@@ -535,3 +535,8 @@ body.benvenuto .gfab, body.benvenuto .invito { display: none; }
 .g-registra { position: sticky; bottom: 0; padding-top: 10px; background: var(--surface); }
 .g-registra .btn { width: 100%; }
 .g-scorc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+
+/* niente zoom mentre si segnano i punti: il doppio tocco veloce su − + non ingrandisce,
+   e nei pannelli del gioco non si fa pinch (la mappa resta zoomabile) */
+button, .btn, a, input, select, label { touch-action: manipulation; }
+.g-modale, .g-pagina, .g-benvenuto, .g-drawer { touch-action: pan-x pan-y; }
