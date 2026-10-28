@@ -469,18 +469,20 @@ b[data-u] { cursor: pointer; }
 .g-prof h3 { margin: 0; }
 .g-prof p { margin: 2px 0 0; color: var(--muted); }
 
-.g-feed { display: grid; gap: 22px; }
-.g-card > header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.g-feed { display: grid; gap: 0; }
+/* stile Instagram: foto quadrata ritagliata, card compatte separate da una riga */
+.g-card { padding: 12px 0 14px; border-bottom: 1px solid var(--line); }
+.g-card > header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; font-size: 15px; }
 .g-card > header small { color: var(--muted); }
 .g-card > header .g-adm { margin: 0 0 0 auto; }
-.g-card img:not(.av) { width: 100%; height: auto; border-radius: 14px; background: var(--bg); display: block; }
+.g-card img:not(.av) { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 6px; background: var(--bg); display: block; }
 .g-card.annullato img:not(.av) { opacity: .35; }
-.g-did { margin: 8px 0 0; }
-.g-reaz { display: flex; gap: 6px; margin: 8px 0 4px; }
-.g-reaz button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 12px; font-size: 17px; }
+.g-did { margin: 6px 0 0; font-size: 15px; }
+.g-reaz { display: flex; gap: 4px; margin: 8px 0 2px; }
+.g-reaz button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 3px 10px; font-size: 16px; }
 .g-reaz button[aria-pressed="true"] { border-color: var(--ombra); background: var(--ombra-soft); }
 .g-reaz span { font-size: 14px; font-weight: 700; }
-.g-comm p { margin: 4px 0; font-size: 15px; overflow-wrap: anywhere; }
+.g-comm p { margin: 3px 0; font-size: 14px; overflow-wrap: anywhere; }
 .g-delc { border: 0; background: none; color: var(--muted); font-size: 12px; }
 .g-scrivi { display: flex; gap: 6px; margin-top: 6px; }
 .g-scrivi input { flex: 1; min-width: 0; font: 16px var(--body); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
