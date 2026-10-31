@@ -1136,10 +1136,12 @@
             if (res.error) throw res.error;
             toast({ messaggio: "Messaggio inviato", doppi: "Punti doppi lanciati", sfida: "Sfida lanciata", correzione: "Punti assegnati" }[tipo]);
             if (tipo !== "correzione") {
-              const ora = fine ? ", entro le " + hhmm(fine) : "";
-              const n = tipo === "messaggio" ? ["📣 " + f.titolo.value.trim(), f.testo.value.trim()]
-                : tipo === "doppi" ? ["⚡ Punti doppi!", `Tutto vale doppio per ${f.durata.value} minuti`]
-                : ["🎯 Sfida lampo: " + f.titolo.value.trim(), `${num(f.punti.value)} punti${ora}`];
+              // notifica stile "app vera": titolo fisso in maiuscolo, il contenuto nel testo
+              const tit = f.titolo ? f.titolo.value.trim() : "", txt = f.testo ? f.testo.value.trim() : "";
+              const corpo = txt ? `${tit}\n${txt}` : tit;
+              const n = tipo === "messaggio" ? ["📣 COMUNICAZIONE DI SERVIZIO", corpo]
+                : tipo === "doppi" ? ["⚡ PUNTI DOPPI", `Per ${f.durata.value} minuti, fino alle ${hhmm(fine)}, ogni ombra, cicchetto e check-in vale il doppio. Approfittane subito!`]
+                : ["🎯 SFIDA LAMPO", `${corpo}\n${num(f.punti.value)} punti in palio${fine ? ", entro le " + hhmm(fine) : ""}!`];
               inviaPush(n[0], n[1], tipo).then((r) => toast(`Notifica inviata a ${r.inviate} telefoni`))
                 .catch((e2) => toast("Avviso pubblicato, ma la notifica push non è partita: " + spiegaErrore(e2)));
               await caricaAvvisi(); apriPagina("admin");
